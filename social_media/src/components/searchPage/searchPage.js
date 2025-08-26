@@ -171,6 +171,7 @@ useEffect(() => {
           phone
           profileImage
           bio
+          is_blocked
           createTime
           followers { id name }
           following { id name }
@@ -214,6 +215,17 @@ useEffect(() => {
 
       console.log("Search - Raw response from server:", response.data);
       const { data, errors } = response.data;
+
+     if (data?.searchUsers) {
+  const blockedUser = data.searchUsers.find(
+    (user) => user.name.toLowerCase() === query.toLowerCase() && user.is_blocked
+  );
+
+  if (blockedUser) {
+        return;
+  }
+}
+
 
       if (errors && errors.length > 0) {
         console.log("Search - Errors received:", errors);

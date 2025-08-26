@@ -6,12 +6,73 @@ import StoryRecord from "./StoryRecord"
 import CommentRecord from "./CommentRecord"
 import ActivityRecord from "./ActivityRecord"
 import Skeleton from "./Skeleton"
+import { useQuery } from "@apollo/client"
+import { GET_USER_LIKED_REELS, GET_USER_LIKED_VIDEOS, GET_USER_LIKED_POSTS } from "../../graphql/mutations"
+import { GET_USER_COMMENTED_REELS, GET_USER_COMMENTED_VIDEOS, GET_USER_COMMENTED_POSTS } from "../../graphql/mutations"
+
 
 const UserDetail = ({ selectedUser, onViewUser, onBackToUsers }) => {
   console.log(selectedUser)
   const [activeTab, setActiveTab] = useState("Like Record")
   const [showLikeRecord, setShowLikeRecord] = useState(true)
   const [profileImageLoading, setProfileImageLoading] = useState(true)
+  const[likeCount,setLikeCount] = useState(0);
+  const[commentCount,setCommentCount]=useState(0);
+
+  const { data: reelData } = useQuery(GET_USER_LIKED_REELS, { variables: { userId: selectedUser?.id } })
+    const { data: videoData } = useQuery(GET_USER_LIKED_VIDEOS, { variables: { userId: selectedUser?.id } })
+    const { data: postData } = useQuery(GET_USER_LIKED_POSTS, { variables: { userId: selectedUser?.id } })
+      const { data: reelCommentData } = useQuery(GET_USER_COMMENTED_REELS, { variables: { userId: selectedUser?.id } })
+  const { data: videoCommentData } = useQuery(GET_USER_COMMENTED_VIDEOS, { variables: { userId: selectedUser?.id } })
+  const { data: postCommentData } = useQuery(GET_USER_COMMENTED_POSTS, { variables: { userId: selectedUser?.id } })
+
+
+      let apiCommentReelItems = (reelCommentData?.getUserCommentedReels || [])
+    
+      let apiCommentVideoItems = (videoCommentData?.getUserCommentedVideos || [])
+    
+      let apiCommentPostItems = (postCommentData?.getUserCommentedPosts || [])
+    
+      let CommentItems = [...apiCommentReelItems, ...apiCommentVideoItems, ...apiCommentPostItems];
+
+let totalCommentItemsLength = CommentItems.length;
+
+// Step 6: Handle fallback if all arrays are empty
+let finalCommentItems = totalCommentItemsLength > 0 ? CommentItems : 0;
+
+
+
+      // Step 1: Map reel data
+let apiReelItems = (reelData?.getUserLikedReels || [])
+
+// Step 2: Map video data
+let apiVideoItems = (videoData?.getUserLikedVideos || [])
+
+// Step 3: Map post data
+let apiPostItems = (postData?.getUserLikedPosts || [])
+
+// Step 4: Merge all liked items
+let likedItems = [...apiReelItems, ...apiVideoItems, ...apiPostItems];
+
+// Step 5: Total liked items length
+let totalLikedItemsLength = likedItems.length;
+
+// Step 6: Handle fallback if all arrays are empty
+let finalLikedItems = totalLikedItemsLength > 0 ? likedItems : 0;
+  
+
+    useEffect(()=>{
+        if(finalLikedItems?.length>0){
+            setLikeCount(finalLikedItems?.length);
+        }
+
+         if(finalCommentItems?.length>0){
+            setCommentCount(finalCommentItems?.length);
+        }
+    },[finalLikedItems,finalCommentItems])
+
+
+        
 
   useEffect(() => {
     const imageTimer = setTimeout(() => {
@@ -24,13 +85,6 @@ const UserDetail = ({ selectedUser, onViewUser, onBackToUsers }) => {
     { name: "Like Record", icon: Heart },
     { name: "Story Record", icon: BookOpen },
     { name: "Comment Record", icon: MessageCircle },
-  ]
-
-  const stats = [
-    { label: "Total Likes", value: "2,847" },
-    { label: "Total Comments", value: "156" },
-    { label: "Total Following", value: "1,293" },
-    { label: "Total Followers", value: "4,296" },
   ]
 
   const handleTabClick = (tabName) => {
@@ -104,12 +158,25 @@ const UserDetail = ({ selectedUser, onViewUser, onBackToUsers }) => {
                 </button>
               </div>
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mt-4">
-                {stats.map((stat, index) => (
-                  <div key={index} className="bg-gray-50 rounded-lg p-3 text-center">
-                    <div className="text-lg font-semibold text-gray-900">{stat.value}</div>
-                    <div className="text-sm text-gray-600">{stat.label}</div>
+                 <div  className="bg-gray-50 rounded-lg p-3 text-center">
+                    <div className="text-lg font-semibold text-gray-900">{likeCount}</div>
+                    <div className="text-sm text-gray-600">Total Likes</div>
                   </div>
-                ))}
+
+                    <div  className="bg-gray-50 rounded-lg p-3 text-center">
+                    <div className="text-lg font-semibold text-gray-900">{commentCount}</div>
+                    <div className="text-sm text-gray-600">Total Comments</div>
+                  </div>
+
+                    <div  className="bg-gray-50 rounded-lg p-3 text-center">
+                    <div className="text-lg font-semibold text-gray-900">{selectedUser?.following?.length}</div>
+                    <div className="text-sm text-gray-600">Total Following</div>
+                  </div>
+
+                    <div className="bg-gray-50 rounded-lg p-3 text-center">
+                    <div className="text-lg font-semibold text-gray-900">{selectedUser?.followers?.length}</div>
+                    <div className="text-sm text-gray-600">Total Followers</div>
+                  </div>
               </div>
             </div>
           </div>

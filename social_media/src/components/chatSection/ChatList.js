@@ -2389,14 +2389,28 @@ const ChatList = ({ activeTab, createdGroups }) => {
                         className="w-12 h-12 rounded-full object-cover ring-2 ring-purple-100"
                       />
                     )}
-                    <span className={`absolute -bottom-1 -right-1 w-3 h-3 rounded-full border-2 border-white ${onlineUsers.has(user.id) || user.isOnline === true ? 'bg-green-500 animate-pulse' : 'bg-gray-400'} transition-colors duration-300`}></span>
+                    <span className={`absolute -bottom-1 -right-1 w-3 h-3 rounded-full border-2 border-white ${
+                      user.is_blocked 
+                        ? 'bg-gray-400' 
+                        : (onlineUsers.has(user.id) || user.isOnline === true ? 'bg-green-500 animate-pulse' : 'bg-gray-400')
+                    } transition-colors duration-300`}></span>
                   </div>
                   <div className="ml-3 flex-1 min-w-0">
-                    <h3 className="text-sm font-semibold text-gray-900 truncate">{user.name}</h3>
+                    <h3 className="text-sm font-semibold text-gray-900 truncate">
+                      {user.is_blocked ? "Blocked User by Admin" : user.name}
+                    </h3>
                     <div className="flex items-center justify-between">
-                      <p className={`text-xs ${onlineUsers.has(user.id) || user.isOnline === true ? 'text-green-500' : 'text-gray-400'} transition-colors duration-300 flex items-center`}>
-                        <span className={`inline-block w-2 h-2 rounded-full mr-1 ${onlineUsers.has(user.id) || user.isOnline === true ? 'bg-green-500 animate-pulse' : 'bg-gray-400'} transition-colors duration-300`}></span>
-                        {onlineUsers.has(user.id) || user.isOnline === true ? 'Online' : 'Offline'}
+                      <p className={`text-xs ${
+                        user.is_blocked 
+                          ? 'text-gray-400' 
+                          : (onlineUsers.has(user.id) || user.isOnline === true ? 'text-green-500' : 'text-gray-400')
+                      } transition-colors duration-300 flex items-center`}>
+                        <span className={`inline-block w-2 h-2 rounded-full mr-1 ${
+                          user.is_blocked 
+                            ? 'bg-gray-400' 
+                            : (onlineUsers.has(user.id) || user.isOnline === true ? 'bg-green-500 animate-pulse' : 'bg-gray-400')
+                        } transition-colors duration-300`}></span>
+                        {user.is_blocked ? 'Offline' : (onlineUsers.has(user.id) || user.isOnline === true ? 'Online' : 'Offline')}
                       </p>
                       {formatLastMessage(user.id) && (
                         <p className="text-xs text-gray-500 truncate ml-2 max-w-[120px]">
@@ -2461,18 +2475,55 @@ const ChatList = ({ activeTab, createdGroups }) => {
                   className="w-12 h-12 rounded-full ring-2 ring-purple-100"
                 />
                 <div className="ml-3">
-                  <h2 className="text-lg font-semibold text-gray-900">{selectedChat.name}</h2>
-                  <p className={`text-xs flex items-center ${onlineUsers.has(selectedChat?.id) || selectedChat?.isOnline === true ? 'text-green-500' : 'text-gray-400'} transition-colors duration-300`}>
-                    <span className={`inline-block w-2 h-2 rounded-full mr-1 ${onlineUsers.has(selectedChat?.id) || selectedChat?.isOnline === true ? 'bg-green-500 animate-pulse' : 'bg-gray-400'} transition-colors duration-300`}></span>
-                    {onlineUsers.has(selectedChat?.id) || selectedChat?.isOnline === true ? 'Online' : 'Offline'}
+                  <h2 className="text-lg font-semibold text-gray-900">
+                    {selectedChat.is_blocked ? "Blocked User by Admin" : selectedChat.name}
+                  </h2>
+                  <p className={`text-xs flex items-center ${
+                    selectedChat.is_blocked 
+                      ? 'text-gray-400' 
+                      : (onlineUsers.has(selectedChat?.id) || selectedChat?.isOnline === true ? 'text-green-500' : 'text-gray-400')
+                  } transition-colors duration-300`}>
+                    <span className={`inline-block w-2 h-2 rounded-full mr-1 ${
+                      selectedChat.is_blocked 
+                        ? 'bg-gray-400' 
+                        : (onlineUsers.has(selectedChat?.id) || selectedChat?.isOnline === true ? 'bg-green-500 animate-pulse' : 'bg-gray-400')
+                    } transition-colors duration-300`}></span>
+                    {selectedChat.is_blocked ? 'Offline' : (onlineUsers.has(selectedChat?.id) || selectedChat?.isOnline === true ? 'Online' : 'Offline')}
                   </p>
                 </div>
               </div>
               <div className="flex items-center space-x-2 mb-[80px] md:mb-0 relative" ref={headerMenuRef}>
-                <button className="p-2 hover:bg-gray-100 rounded-full"><PhoneIcon className="h-5 w-5 text-gray-600" /></button>
-                <button className="p-2 hover:bg-gray-100 rounded-full" onClick={videocall}><VideoCameraIcon className="h-5 w-5 text-gray-600" /></button>
-                <button className="p-2 hover:bg-gray-100 rounded-full" onClick={() => setHeaderMenuOpen((v) => !v)}>
-                  <EllipsisVerticalIcon className="h-5 w-5 text-gray-600" />
+                <button 
+                  className={`p-2 rounded-full ${
+                    selectedChat.is_blocked 
+                      ? 'cursor-not-allowed opacity-50' 
+                      : 'hover:bg-gray-100'
+                  }`}
+                  disabled={selectedChat.is_blocked}
+                >
+                  <PhoneIcon className={`h-5 w-5 ${selectedChat.is_blocked ? 'text-gray-300' : 'text-gray-600'}`} />
+                </button>
+                <button 
+                  className={`p-2 rounded-full ${
+                    selectedChat.is_blocked 
+                      ? 'cursor-not-allowed opacity-50' 
+                      : 'hover:bg-gray-100'
+                  }`}
+                  onClick={() => !selectedChat.is_blocked && videocall()}
+                  disabled={selectedChat.is_blocked}
+                >
+                  <VideoCameraIcon className={`h-5 w-5 ${selectedChat.is_blocked ? 'text-gray-300' : 'text-gray-600'}`} />
+                </button>
+                <button 
+                  className={`p-2 rounded-full ${
+                    selectedChat.is_blocked 
+                      ? 'cursor-not-allowed opacity-50' 
+                      : 'hover:bg-gray-100'
+                  }`}
+                  onClick={() => !selectedChat.is_blocked && setHeaderMenuOpen((v) => !v)}
+                  disabled={selectedChat.is_blocked}
+                >
+                  <EllipsisVerticalIcon className={`h-5 w-5 ${selectedChat.is_blocked ? 'text-gray-300' : 'text-gray-600'}`} />
                 </button>
                 {headerMenuOpen && (
                   <div className="absolute right-0 top-10 z-50 bg-white border border-gray-200 rounded shadow-md py-1 w-40 flex flex-col animate-fadeIn">
@@ -2786,18 +2837,24 @@ const ChatList = ({ activeTab, createdGroups }) => {
               
               <div className="flex items-center gap-2 relative">
                 <button
-                  className="p-1.5 hover:bg-gray-100 rounded-full relative"
+                  className={`p-1.5 rounded-full relative ${
+                    selectedChat?.is_blocked
+                      ? 'cursor-not-allowed opacity-50'
+                      : 'hover:bg-gray-100'
+                  }`}
                   onClick={() => {
-                    console.log("📎 Attachment button clicked! Current showAttachmentBar:", showAttachmentBar);
-                    setShowAttachmentBar((prev) => !prev);
+                    if (!selectedChat?.is_blocked) {
+                      console.log("📎 Attachment button clicked! Current showAttachmentBar:", showAttachmentBar);
+                      setShowAttachmentBar((prev) => !prev);
+                    }
                   }}
                   type="button"
-                  disabled={isUploading}
+                  disabled={isUploading || selectedChat?.is_blocked}
                 >
                   {isUploading ? (
                     <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-purple-600"></div>
                   ) : (
-                    <PaperClipIcon className="h-5 w-5 text-gray-600" />
+                    <PaperClipIcon className={`h-5 w-5 ${selectedChat?.is_blocked ? 'text-gray-300' : 'text-gray-600'}`} />
                   )}
                 </button>
                 {showAttachmentBar && (
@@ -2922,20 +2979,30 @@ const ChatList = ({ activeTab, createdGroups }) => {
                           }
                         }}
                         placeholder={
-                          recordedAudio 
-                            ? "Add a message to your voice note..." 
-                            : selectedFile 
-                              ? "Add a caption to your image..." 
-                              : "Type a message..."
+                          selectedChat?.is_blocked 
+                            ? "Cannot message blocked user"
+                            : recordedAudio 
+                              ? "Add a message to your voice note..." 
+                              : selectedFile 
+                                ? "Add a caption to your image..." 
+                                : "Type a message..."
                         }
-                        className="w-full border border-gray-200 rounded-full px-3 py-1.5 pr-10 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                        disabled={selectedChat?.is_blocked}
+                        className={`w-full border border-gray-200 rounded-full px-3 py-1.5 pr-10 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent ${
+                          selectedChat?.is_blocked ? 'bg-gray-100 cursor-not-allowed opacity-50' : ''
+                        }`}
                       />
                       
                       {/* Emoji Button */}
                       <button
                         type="button"
-                        className="absolute right-3 top-1/2 transform -translate-y-1/2 text-xl text-gray-500 hover:text-purple-500 focus:outline-none"
-                        onClick={() => setShowEmojiPicker((prev) => !prev)}
+                        className={`absolute right-3 top-1/2 transform -translate-y-1/2 text-xl focus:outline-none ${
+                          selectedChat?.is_blocked 
+                            ? 'text-gray-300 cursor-not-allowed' 
+                            : 'text-gray-500 hover:text-purple-500'
+                        }`}
+                        onClick={() => !selectedChat?.is_blocked && setShowEmojiPicker((prev) => !prev)}
+                        disabled={selectedChat?.is_blocked}
                       >
                         <BsEmojiSmile />
                       </button>
@@ -2959,13 +3026,24 @@ const ChatList = ({ activeTab, createdGroups }) => {
                       )}
                     </div>
 
-                    <button className="p-2 bg-purple-600 text-white rounded-full hover:bg-purple-700 transition-colors duration-200 flex items-center justify-center" type="button" onClick={() => {
-                      if (isRecording) {
-                        stopRecording();
-                      } else {
-                        startRecording();
-                      }
-                    }}>
+                    <button 
+                      className={`p-2 text-white rounded-full transition-colors duration-200 flex items-center justify-center ${
+                        selectedChat?.is_blocked
+                          ? 'bg-gray-400 cursor-not-allowed opacity-50'
+                          : 'bg-purple-600 hover:bg-purple-700'
+                      }`} 
+                      type="button" 
+                      onClick={() => {
+                        if (!selectedChat?.is_blocked) {
+                          if (isRecording) {
+                            stopRecording();
+                          } else {
+                            startRecording();
+                          }
+                        }
+                      }}
+                      disabled={selectedChat?.is_blocked}
+                    >
                       {/* Show stop icon if recording, else mic icon */}
                       {isRecording ? (
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -2982,15 +3060,17 @@ const ChatList = ({ activeTab, createdGroups }) => {
                     </button>
                     <button 
                       className={`p-2 text-white rounded-full transition-colors duration-200 flex items-center justify-center ${
-                        recordedAudio
-                          ? 'bg-green-600 hover:bg-green-700 animate-pulse'
-                          : selectedFile 
-                            ? 'bg-green-600 hover:bg-green-700 animate-pulse' 
+                        selectedChat?.is_blocked
+                          ? 'bg-gray-400 cursor-not-allowed opacity-50'
+                          : recordedAudio
+                            ? 'bg-green-600 hover:bg-green-700 animate-pulse'
+                              : selectedFile 
+                              ? 'bg-green-600 hover:bg-green-700 animate-pulse' 
                             : 'bg-purple-600 hover:bg-purple-700'
                       }`} 
                       type="button"
                       onClick={chat}
-                      disabled={isUploading}
+                      disabled={isUploading || selectedChat?.is_blocked}
                     >
                       {isUploading ? (
                         <svg className="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">

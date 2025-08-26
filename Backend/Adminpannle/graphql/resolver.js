@@ -2,19 +2,30 @@ const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const Admin = require("../model/model"); // mongoose model
 const User = require('../../Models/user');
-const Post = require('../../Models/post');
+const Post = require('../../Models/Post');
 const Block = require('../model/block'); // mongoose model for blocked users
 const mongoose = require("mongoose");
 const Video = require('../../Models/Video'); // Assuming you have a Video model
+const Category = require("../model/Category");
 
 
 const adminResolvers = {
   Query: {
 
+    getAllCategories: async () => {
+      try {
+        const categories = await Category.find().sort({ createdAt: -1 }); // Latest pehle
+        return categories;
+      } catch (error) {
+        throw new Error("Failed to fetch categories: " + error.message);
+      }
+    },
+
     // all users
       allUsers: async () =>{
  return await User.countDocuments();  
-      },  
+      }, 
+    
     admin: async (_, { id }) => {
       return await Admin.findById(id);
     },
@@ -187,9 +198,85 @@ getUserCommentedReels: async (_, { userId }) => {
   await user.save();
 
   return user;
+},
+
+  DeletePost: async (_, { id,type}) => {  
+
+      if (!id || !type) throw new Error("Id or Type field not found");
+
+      if(type === 'posts'){
+
+      const deletePost = await Post.findByIdAndDelete(id);
+
+if (deletePost) {
+  const user = await User.findById(deletePost.createdBy);
+  
+
+  if (user) {
+    user.posts = user.posts.filter(
+      postId => postId.toString() !== deletePost._id.toString()
+    );
+
+    await user.save(); // 🔥 Ye important hai
+  }
+}
+      return "DeletePost Successfully..."
+}
+    else if(type === 'reels'){
+  const deletePost = await Video.findByIdAndDelete(id);
+}
+return "DeleteVideo Successfully..."
+    },
+
+   createCategory: async (_, { name, userId }, context) => {
+  try {
+    if (!userId) {
+      throw new Error("Unauthorized. Please provide a valid userId");
+    }
+
+    const existing = await Category.findOne({ name });
+    if (existing) {
+      throw new Error("Category already exists");
+    }
+
+    const newCategory = await Category.create({
+      name,
+      createdBy: userId
+    });
+
+    return newCategory;
+  } catch (error) {
+    throw new Error(error.message);
+  }
+},
+
+deleteCategory: async (_, { id, userId }, context) => {
+  try {
+    if (!userId) {
+      throw new Error("Unauthorized. Please provide a valid userId");
+    }
+
+    // Optionally, check if category exists before deleting
+    const category = await Category.findById(id);
+    if (!category) {
+      throw new Error("Category not found");
+    }
+
+    // Optional: Check if userId matches createdBy to allow only creator/admin to delete
+    if (category.createdBy.toString() !== userId) {
+      throw new Error("You do not have permission to delete this category");
+    }
+
+    await Category.findByIdAndDelete(id);
+    return true;
+  } catch (error) {
+    throw new Error(error.message);
+  }
 }
 
-   
+
+
+
   },
  
 

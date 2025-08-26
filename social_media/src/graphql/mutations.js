@@ -2,8 +2,40 @@
 import { gql } from "@apollo/client";
 
 
+export const CREATE_CATEGORY = gql`
+  mutation CreateCategory($name: String!, $userId: ID!) {
+    createCategory(name: $name, userId: $userId) {
+      id
+      name
+      createdAt
+    }
+  }
+`;
+
+export const DELETE_CATEGORY = gql`
+  mutation DeleteCategory($id: ID!, $userId: ID!) {
+    deleteCategory(id: $id, userId: $userId)
+  }
+`;
+
+export const GET_ALL_CATEGORIES = gql`
+  query GetAllCategories {
+    getAllCategories {
+      id
+      name
+      createdAt
+      createdBy {
+        id
+        name
+      }
+    }
+  }
+`;
+
+
+
 export const BLOCK_ADMIN_BY_USER = gql`
-  query blockUser($userId: ID!) {
+  mutation blockUser($userId: ID!) {
     blockUser(userId: $userId) {
        id
        name
@@ -11,9 +43,9 @@ export const BLOCK_ADMIN_BY_USER = gql`
       email
       profileImage
       is_blocked
-      following
-      followers
-      posts
+      following{id}
+      followers{id}
+      posts{id}
        
     }
   }
@@ -21,7 +53,7 @@ export const BLOCK_ADMIN_BY_USER = gql`
 
 
 export const UNBLOCK_ADMIN_BY_USER = gql`
-  query unblockUser($userId: ID!) {
+  mutation unblockUser($userId: ID!) {
     unblockUser(userId: $userId) {
        id
        name
@@ -29,9 +61,9 @@ export const UNBLOCK_ADMIN_BY_USER = gql`
       email
       profileImage
       is_blocked
-      following
-      followers
-      posts
+      following{id}
+      followers{id}
+      posts{id}
        
     }
   }
@@ -140,6 +172,12 @@ export const CREATE_POST = gql`
   }
 `;
 
+export const DELETE_POST_BY_ADMIN = gql`
+  mutation DeletePost($id: ID!, $type: String!) { 
+  DeletePost(id: $id,type:$type)
+   }
+`;
+
 
 export const GET_ALL_POSTS = gql`
   query getAllPosts($userId: ID!) {
@@ -242,6 +280,7 @@ export const GET_ME = gql`
       username
       bio
       profileImage
+      is_blocked
       followers { id }
       following { id }
       posts { id }
@@ -320,6 +359,7 @@ export const GET_ALL_USERS = gql`
       username
       profileImage
       isOnline
+      is_blocked
       lastActive
        followers { id }
       following { id }
@@ -377,6 +417,7 @@ export const GET_USER_INFO = gql`
       username
       bio
       profileImage
+      is_blocked
       followers {
         id
       }

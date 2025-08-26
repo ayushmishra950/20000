@@ -20,6 +20,9 @@ import NewPassword from './components/password_change/NewPassword';
 import SearchPage from './components/searchPage/searchPage';
 import { GetTokenFromCookie } from './components/getToken/GetToken';
 import VideoCall from './components/videocall/VideoCall'; // or actual path
+import BlockedUserMonitor from './components/auth/BlockedUserMonitor';
+// Import axios config to initialize interceptors
+import './utils/axiosConfig';
 import CallUser from './components/videocall/CallUser';
 import ReceiveCall from './components/videocall/ReceiveCall';
 import IncomingCallNotification from './components/videocall/IncomingCallNotification';
@@ -44,6 +47,9 @@ function App() {
           
           {/* Global notification popup handler */}
           <NotificationManager />
+          
+          {/* Global blocked user monitor */}
+          <BlockedUserMonitor />
           
           <Routes>
           <Route path="/" element={<Main />} />

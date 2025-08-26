@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import { FaTimes, FaVolumeUp, FaVolumeMute, FaPhotoVideo, FaPlayCircle, FaPauseCircle } from "react-icons/fa";
-import { useMutation } from "@apollo/client";
-import { UPLOAD_VIDEO, CREATE_POST, GET_ALL_VIDEOS, GET_ALL_POSTS } from "../../graphql/mutations";
+import { useMutation, useQuery } from "@apollo/client";
+import { UPLOAD_VIDEO, CREATE_POST, GET_ALL_VIDEOS, GET_ALL_POSTS, GET_ALL_CATEGORIES } from "../../graphql/mutations";
 import { GetTokenFromCookie } from '../getToken/GetToken';
 
 const VideoUpload = ({ show, onClose, onSuccess }) => {
@@ -21,6 +21,7 @@ const VideoUpload = ({ show, onClose, onSuccess }) => {
   const hiddenVideoRef = useRef();
   const [videoUrl, setVideoUrl] = useState(null);
   const user = GetTokenFromCookie();
+  const { data: categoriesData } = useQuery(GET_ALL_CATEGORIES);
   const [uploadVideo] = useMutation(UPLOAD_VIDEO, {
     refetchQueries: [
       { query: GET_ALL_VIDEOS },
@@ -410,13 +411,11 @@ const VideoUpload = ({ show, onClose, onSuccess }) => {
                     className="flex-1 p-2 rounded-xl border-2 border-purple-100 focus:border-purple-400 outline-none text-sm shadow-sm"
                   >
                     <option value="general">General</option>
-                    <option value="entertainment">Entertainment</option>
-                    <option value="education">Education</option>
-                    <option value="music">Music</option>
-                    <option value="sports">Sports</option>
-                    <option value="gaming">Gaming</option>
-                    <option value="technology">Technology</option>
-                    <option value="lifestyle">Lifestyle</option>
+                    {(categoriesData?.getAllCategories || []).map((cat) => (
+                      <option key={cat.id} value={cat.name.toLowerCase()}>
+                        {cat.name}
+                      </option>
+                    ))}
                   </select>
                   <label className="flex items-center gap-2 text-sm">
                     <input

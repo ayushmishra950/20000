@@ -5,6 +5,8 @@ import Dashboard from "../pages/Dashboard"
 import UserData from "../pages/UserData"
 import UserDetail from "../pages/UserDetail"
 import UserInfo from "../pages/UserInfo"
+import ReelsManagement from "../pages/ManageReels"
+import ManagePosts from "../pages/ManagePosts"
 
 
 export default function App() {
@@ -13,6 +15,7 @@ export default function App() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
   const [isCollapsed, setIsCollapsed] = useState(true) // Default collapsed
   const [selectedUser, setSelectedUser] = useState(null)
+  const [previousPage, setPreviousPage] = useState("User Data")
 
   const renderCurrentPage = () => {
     switch (currentPage) {
@@ -23,6 +26,7 @@ export default function App() {
           <UserData
             onViewClick={(user) => {
               setSelectedUser(user)
+              setPreviousPage("User Data")
               setCurrentPage("UserDetail")
               setShowReelsVideos(true)
             }}
@@ -42,8 +46,20 @@ export default function App() {
         )
       case "UserInfo":
         return <UserInfo selectedUser={selectedUser} onBackToUsers={() => {
-          setCurrentPage("User Data")
+          setCurrentPage(previousPage)
         }} />
+      case "Manage Reels":
+        return <ReelsManagement />
+      case "Manage Videos/Posts":
+        return (
+          <ManagePosts
+            onViewClick={(user) => {
+              setSelectedUser(user)
+              setPreviousPage("Manage Videos/Posts")
+              setCurrentPage("UserInfo")
+            }}
+          />
+        )
       default:
         return <Dashboard />
     }

@@ -13,7 +13,7 @@ import GifPicker from 'gif-picker-react';
 import { GET_ALL_USERS, GET_ME, ADD_STORY, UPLOAD_STORY_MEDIA, GET_USER_STORIES, DELETE_STORY } from '../../graphql/mutations';
 import { GetTokenFromCookie } from '../getToken/GetToken';
 import StoryViewer from '../storyViewer/StoryViewer';
-import axios from 'axios';
+import axiosInstance from '../../utils/axiosConfig';
 
 const isMobile = () => window.innerWidth <= 768;
 
@@ -937,10 +937,9 @@ const StoryBar = ({ storyBarRef, scrollStories, userAvatarUrl }) => {
   // Check backend server health
   const checkServerHealth = async () => {
     try {
-      const response = await axios.post("http://localhost:5000/graphql", {
+      const response = await axiosInstance.post("/graphql", {
         query: `query { __typename }`
       }, {
-        headers: { 'Content-Type': 'application/json' },
         timeout: 5000
       });
       return response.status === 200;
@@ -1031,11 +1030,10 @@ const StoryBar = ({ storyBarRef, scrollStories, userAvatarUrl }) => {
           
           console.log(`📡 Fetching stories for ${userData.name} (ID: ${userData.id}) (attempt ${retryCount + 1}/${maxRetries})`);
           
-          const response = await axios.post("http://localhost:5000/graphql", {
+          const response = await axiosInstance.post("/graphql", {
             query,
             variables: { userId: userData.id }
           }, {
-            headers: { 'Content-Type': 'application/json' },
             timeout: 15000 // 15 second timeout
           });
 

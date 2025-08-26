@@ -25,7 +25,7 @@ const resolvers = {
 
   Query: {
     users: async () =>
-      await User.find().select('id name username email phone profileImage bio createTime isOnline lastActive').populate('posts', 'id'),
+      await User.find().select('id name username email phone profileImage is_blocked bio createTime isOnline lastActive').populate('posts', 'id'),
 
       getMe: async (_, args, { user }) => {
         try {
@@ -205,7 +205,7 @@ getCommentDetails: async (_, { postId, commentId }) => {
             { username: { $regex: username, $options: 'i' } }
           ]
         })
-          .select('id name username email phone profileImage bio createTime followers following posts')
+          .select('id name username email phone is_blocked profileImage bio createTime followers following posts')
           .populate('followers', 'id name')
           .populate('following', 'id name')
           .populate({
@@ -333,11 +333,29 @@ getCommentDetails: async (_, { postId, commentId }) => {
       }
     },
 
-    getUserInformation: async (_, { id }) => {
-      const user = await User.findById(id);
-      if (!user) throw new Error("User not found");
-      return user;
-    },
+  //   getUserInformation: async (_, { id }) => {
+  //     const user = await User.findById(id);
+  //     if (!user) throw new Error("User not found");
+  //     return user;
+  //   },
+  // },
+
+  getUserInformation: async (_, { id }) => {
+  try {
+    const user = await User.findById(id);
+    if (!user) {
+      throw new Error("User not found");
+    }
+
+    if (user.is_blocked) {
+      throw new Error("User is blocked by Admin");
+    }
+
+    return user;
+  } catch (error) {
+    throw new Error(error.message || "Something went wrong");
+  }
+},
   },
 
   Mutation: {
@@ -388,16 +406,28 @@ getCommentDetails: async (_, { postId, commentId }) => {
       return user;
     },
 
-    login: async (_, { email, password }, { res }) => {
-      const user = await User.findOne({ email });
-      if (!user) throw new Error('User not found');
-      const isMatch = await bcrypt.compare(password, user.password);
-      if (!isMatch) throw new Error('Invalid credentials');
+   login: async (_, { email, password }, { res }) => {
+  const user = await User.findOne({ email });
+  
+  if (!user) {
+    throw new Error('User not found');
+  }
 
-      const token = user_token(user);
-      res.cookie("token", token);
-      return user;
-    },
+  // ✅ Block check pehle hi lagao
+  if (user.is_blocked) {
+    throw new Error('User is blocked by admin');
+  }
+
+  const isMatch = await bcrypt.compare(password, user.password);
+  if (!isMatch) {
+    throw new Error('Invalid credentials');
+  }
+
+  const token = user_token(user);
+  res.cookie("token", token);
+  return user;
+},
+
 
     logout: async (_, __, { res }) => {
       res.clearCookie("token");

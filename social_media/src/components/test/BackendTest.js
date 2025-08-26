@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import axios from 'axios';
+import axiosInstance from '../../utils/axiosConfig';
 import { GetTokenFromCookie } from '../getToken/GetToken';
 
 const BackendTest = () => {
@@ -31,13 +31,9 @@ const BackendTest = () => {
         postId: "test-post-id" // Replace with actual post ID
       };
 
-      const response = await axios.post("http://localhost:5000/graphql", {
+      const response = await axiosInstance.post("/graphql", {
         query,
         variables
-      }, {
-        headers: {
-          'Content-Type': 'application/json'
-        }
       });
 
       if (response.data.errors) {
@@ -77,13 +73,9 @@ const BackendTest = () => {
         id: "test-user-id" // Replace with actual user ID
       };
 
-      const response = await axios.post("http://localhost:5000/graphql", {
+      const response = await axiosInstance.post("/graphql", {
         query,
         variables
-      }, {
-        headers: {
-          'Content-Type': 'application/json'
-        }
       });
 
       if (response.data.errors) {
@@ -125,13 +117,9 @@ const BackendTest = () => {
         text: "This is a test comment from frontend"
       };
 
-      const response = await axios.post("http://localhost:5000/graphql", {
+      const response = await axiosInstance.post("/graphql", {
         query,
         variables
-      }, {
-        headers: {
-          'Content-Type': 'application/json'
-        }
       });
 
       if (response.data.errors) {

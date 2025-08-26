@@ -62,6 +62,7 @@ export default function Main({ userId }) {
               bio
               profileImage
               isOnline
+              is_blocked
               lastActive
               followers { id }
               following { id }

@@ -1,12 +1,12 @@
-"use client"
+ "use client"
 
 import { Eye, Search, Bell, User, MoreVertical, Ban } from "lucide-react";
 import { useState, useEffect } from "react";
 import Skeleton from "./Skeleton";
-import { GET_ALL_USERS, UNBLOCK_ADMIN_BY_USER, BLOCK_ADMIN_BY_USER } from "../../graphql/mutations"
-import { useMutation, useQuery } from '@apollo/client';
+import {GET_ALL_USERS}  from "../../graphql/mutations"
+import { gql, useQuery } from '@apollo/client';
 
-export default function UserData({ onViewClick }) {
+export default function ManagePosts({ onViewClick }) {
   const [imageLoadingStates, setImageLoadingStates] = useState({})
   const [openMenuId, setOpenMenuId] = useState(null)
   const [menuPos, setMenuPos] = useState({ top: 0, left: 0 })
@@ -30,96 +30,8 @@ export default function UserData({ onViewClick }) {
     }
   }, [])
 
-  const { data: usersData, loading: usersLoading, error: usersError, refetch } = useQuery(GET_ALL_USERS);
-  const [blockUser] = useMutation(BLOCK_ADMIN_BY_USER, {
-    update(cache, { data }) {
-      // Update the cache immediately after successful mutation
-      const existingUsers = cache.readQuery({ query: GET_ALL_USERS });
-      if (existingUsers && data.blockUser) {
-        const updatedUsers = existingUsers.users.map(user => 
-          user.id === data.blockUser.id 
-            ? { ...user, is_blocked: true }
-            : user
-        );
-        cache.writeQuery({
-          query: GET_ALL_USERS,
-          data: { users: updatedUsers }
-        });
-      }
-    }
-  });
-  
-  const [unblockUser] = useMutation(UNBLOCK_ADMIN_BY_USER, {
-    update(cache, { data }) {
-      // Update the cache immediately after successful mutation
-      const existingUsers = cache.readQuery({ query: GET_ALL_USERS });
-      if (existingUsers && data.unblockUser) {
-        const updatedUsers = existingUsers.users.map(user => 
-          user.id === data.unblockUser.id 
-            ? { ...user, is_blocked: false }
-            : user
-        );
-        cache.writeQuery({
-          query: GET_ALL_USERS,
-          data: { users: updatedUsers }
-        });
-      }
-    }
-  });
-
-  const handleBlockToggle = async (user) => {
-    console.log(user)
-    if (!user || !user?.id) return;
-
-    const userId = String(user?.id); 
-    try {
-      if (user.is_blocked) {
-        await unblockUser({
-          variables: { userId: userId },
-          optimisticResponse: {
-            unblockUser: {
-              __typename: "User",
-              id: user.id,
-              name: user.name,
-              username: user.username,
-              email: user.email,
-              profileImage: user.profileImage,
-              is_blocked: false,
-              following: user.following,
-              followers: user.followers,
-              posts: user.posts
-            }
-          }
-        });
-      } else {
-        await blockUser({
-          variables: { userId: userId },
-          optimisticResponse: {
-            blockUser: {
-              __typename: "User",
-              id: user.id,
-              name: user.name,
-              username: user.username,
-              email: user.email,
-              profileImage: user.profileImage,
-              is_blocked: true,
-              following: user.following,
-              followers: user.followers,
-              posts: user.posts
-            }
-          }
-        });
-      }
-
-      setOpenMenuId(null);
-    } catch (err) {
-      console.error("Error toggling block status:", err.message);
-      // Refetch on error to ensure UI is in sync
-      await refetch();
-    }
-  };
-
-
+  const { data: usersData, loading: usersLoading, error: usersError } = useQuery(GET_ALL_USERS);
+     
   // Real user data from backend
   const users = usersData?.users || [];
 
@@ -154,8 +66,8 @@ export default function UserData({ onViewClick }) {
           {imageLoadingStates[user.id] ? (
             <Skeleton variant="circle" className="w-10 h-10" />
           ) : user.profileImage ? (
-            <img
-              src={user.profileImage}
+            <img 
+              src={user.profileImage} 
               alt={user.name}
               className="w-10 h-10 rounded-full object-cover border-2 border-gray-200"
               onError={(e) => {
@@ -170,8 +82,8 @@ export default function UserData({ onViewClick }) {
             </div>
           )}
           {user.profileImage && (
-            <div
-              className="w-10 h-10 bg-[#B65FCF] rounded-full flex items-center justify-center text-white font-medium"
+            <div 
+              className="w-10 h-10 bg-[#B65FCF] rounded-full flex items-center justify-center text-white font-medium" 
               style={{ display: 'none' }}
             >
               {user.name?.charAt(0) || 'U'}
@@ -201,10 +113,10 @@ export default function UserData({ onViewClick }) {
             >
               <MoreVertical size={16} />
             </button>
-            {/* {openMenuId === user.id && (
+            {openMenuId === user.id && (
               <div className="fixed w-32 bg-white border border-gray-200 rounded-md shadow-lg z-50" style={{ top: menuPos.top, left: menuPos.left }}>
                 <button
-                  onClick={(e) => { e.stopPropagation();  setOpenMenuId(null); }}
+                  onClick={(e) => { e.stopPropagation(); /* TODO: handle block */ setOpenMenuId(null); }}
                   className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded-md"
                   title="Block user"
                   type="button"
@@ -213,29 +125,7 @@ export default function UserData({ onViewClick }) {
                   Block
                 </button>
               </div>
-            )} */}
-
-            {openMenuId === user.id && (
-              <div
-                className="fixed w-32 bg-white border border-gray-200 rounded-md shadow-lg z-50"
-                style={{ top: menuPos.top, left: menuPos.left }}
-              >
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleBlockToggle(user);
-                  }}
-                  className={`w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-gray-100 rounded-md ${user.is_blocked ? "text-green-600" : "text-red-600"
-                    }`}
-                  title={user.is_blocked ? "Unblock user" : "Block user"}
-                  type="button"
-                >
-                  <Ban size={16} />
-                  {user.is_blocked ? "Unblock" : "Block"}
-                </button>
-              </div>
             )}
-
           </div>
         </td>
       </tr>
@@ -247,7 +137,7 @@ export default function UserData({ onViewClick }) {
       {/* Top Bar - Hidden on mobile, shown on desktop */}
       <header className="hidden lg:block bg-white border-b border-gray-200 px-4 sm:px-6 py-4">
         <div className="flex items-center justify-between min-w-0">
-          <h1 className="text-xl sm:text-2xl font-semibold text-gray-900 truncate">User Data</h1>
+          <h1 className="text-xl sm:text-2xl font-semibold text-gray-900 truncate">Manage Posts</h1>
           <div className="flex items-center space-x-2 sm:space-x-4 flex-shrink-0">
             <div className="relative hidden sm:block">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
@@ -271,16 +161,16 @@ export default function UserData({ onViewClick }) {
       <main className="p-3 sm:p-4 lg:p-6 min-w-0">
         {/* Mobile title */}
         <div className="lg:hidden mb-4">
-          <h1 className="text-xl font-semibold text-gray-900">User Management</h1>
+          <h1 className="text-xl font-semibold text-gray-900">Manage Posts</h1>
         </div>
-
+        
         {/* Mobile Search */}
         <div className="lg:hidden mb-4">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
             <input
               type="text"
-              placeholder="Search users..."
+              placeholder="Search posts..."
               className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#B65FCF] focus:border-transparent"
             />
           </div>
@@ -363,8 +253,8 @@ export default function UserData({ onViewClick }) {
                       {imageLoadingStates[user.id] ? (
                         <div className="w-12 h-12 bg-gray-200 rounded-full animate-pulse"></div>
                       ) : user.profileImage ? (
-                        <img
-                          src={user.profileImage}
+                        <img 
+                          src={user.profileImage} 
                           alt={user.name}
                           className="w-12 h-12 rounded-full object-cover border-2 border-gray-200"
                           onError={(e) => {
@@ -378,8 +268,8 @@ export default function UserData({ onViewClick }) {
                         </div>
                       )}
                       {user.profileImage && (
-                        <div
-                          className="w-12 h-12 bg-[#B65FCF] rounded-full flex items-center justify-center text-white font-medium text-lg"
+                        <div 
+                          className="w-12 h-12 bg-[#B65FCF] rounded-full flex items-center justify-center text-white font-medium text-lg" 
                           style={{ display: 'none' }}
                         >
                           {user.name?.charAt(0) || 'U'}
@@ -414,10 +304,10 @@ export default function UserData({ onViewClick }) {
                     >
                       <MoreVertical size={16} />
                     </button>
-                    {/* {openMenuId === user.id && (
+                    {openMenuId === user.id && (
                       <div className="fixed w-32 bg-white border border-gray-200 rounded-md shadow-lg z-50" style={{ top: menuPos.top, left: menuPos.left }}>
                         <button
-                          onClick={(e) => { e.stopPropagation(); setOpenMenuId(null); }}
+                          onClick={(e) => { e.stopPropagation(); /* TODO: handle block */ setOpenMenuId(null); }}
                           className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded-md"
                           title="Block user"
                           type="button"
@@ -426,29 +316,7 @@ export default function UserData({ onViewClick }) {
                           Block
                         </button>
                       </div>
-                    )} */}
-
-                    {openMenuId === user.id && (
-                      <div
-                        className="fixed w-32 bg-white border border-gray-200 rounded-md shadow-lg z-50"
-                        style={{ top: menuPos.top, left: menuPos.left }}
-                      >
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleBlockToggle(user);
-                          }}
-                          className={`w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-gray-100 rounded-md ${user.is_blocked ? "text-green-600" : "text-red-600"
-                            }`}
-                          title={user.is_blocked ? "Unblock user" : "Block user"}
-                          type="button"
-                        >
-                          <Ban size={16} />
-                          {user.is_blocked ? "Unblock" : "Block"}
-                        </button>
-                      </div>
                     )}
-
                   </div>
                 </div>
               </div>

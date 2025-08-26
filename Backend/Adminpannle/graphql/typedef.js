@@ -67,6 +67,19 @@ const adminTypeDefs = gql`
      is_blocked: Boolean       # User's videos
   }
 
+  type Category {
+    id: ID!
+    name: String!
+    createdBy: User!
+    createdAt: String!
+  }
+
+  input CreateCategoryInput {
+    name: String!
+  }
+
+  
+
 
   type AuthPayload {
     token: String!
@@ -97,6 +110,8 @@ const adminTypeDefs = gql`
      getUserLikedReels(userId: ID!): [Video!]!
      getUserCommentedReels(userId: ID!): [Video!]!
      getUserCommentedVideos(userId: ID!): [Post!]!
+     getAllCategories: [Category!]!
+    getCategoryById(id: ID!): Category
   }
 
   type Mutation {
@@ -104,6 +119,9 @@ const adminTypeDefs = gql`
     loginAdmin(input: LoginAdminInput!): AuthPayload!
     blockUser(userId: ID!): User
     unblockUser(userId: ID!): User
+     DeletePost(id: ID!,type: String!) : String!
+     createCategory(name: String!, userId: ID!): Category!
+    deleteCategory(id: ID!, userId: ID!): Boolean!
   }
 `;
 

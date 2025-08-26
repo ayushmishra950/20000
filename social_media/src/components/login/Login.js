@@ -91,9 +91,10 @@ const Login = () => {
       );
 
       const { data, errors } = response.data;
+      console.log(errors)
 
       if (errors && errors.length > 0) {
-        setErrorMessage('Incorrect credential, please check.');
+        setErrorMessage(errors[0].message);
         setShowError(true);
         setTimeout(() => setShowError(false), 2000);
       } else {

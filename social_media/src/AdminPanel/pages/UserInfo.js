@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import {
   User,
   Star,
@@ -11,10 +11,12 @@ import {
   Sparkles,
   Activity,
   ArrowLeft,
+  MoreVertical,
+  Trash2,
 } from "lucide-react"
 import CountUp from "react-countup"
-import {GET_ALL_POSTS, GET_USER_VIDEOS}  from "../../graphql/mutations"
-import {  useQuery } from '@apollo/client';
+import {GET_ALL_POSTS, GET_USER_VIDEOS,DELETE_POST_BY_ADMIN}  from "../../graphql/mutations"
+import {  useQuery,useMutation  } from '@apollo/client';
 import ActivityRecord from "./ActivityRecord"
 
 // Local image assets
@@ -95,6 +97,29 @@ const StatCard = ({ title, value, start, icon: Icon }) => (
 
 // Reusable component for content grids
 const ContentGrid = ({ items, type }) => {
+  const [openMenuId, setOpenMenuId] = useState(null)
+  const [menuPos, setMenuPos] = useState({ top: 0, left: 0 })
+
+   const [deletePost] = useMutation(DELETE_POST_BY_ADMIN);
+
+  // Close dropdown on outside click or Escape
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (!e.target.closest('[data-dropdown-root="true"]')) {
+        setOpenMenuId(null)
+      }
+    }
+    const handleKey = (e) => {
+      if (e.key === 'Escape') setOpenMenuId(null)
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    document.addEventListener('keydown', handleKey)
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+      document.removeEventListener('keydown', handleKey)
+    }
+  }, [])
+
   console.log(items);
   if (items.length === 0) {
     return (
@@ -107,6 +132,22 @@ const ContentGrid = ({ items, type }) => {
   const isReel = type === "reels"
   const isStory = type === "stories"
 
+
+
+  const handleDelete = async (itemId) => {
+  try {
+   const result = await deletePost({
+      variables: { id: itemId, type : type}
+    });
+
+    alert(result?.data?.DeletePost);
+    setOpenMenuId(null);
+  } catch (err) {
+    console.error("Error deleting post:", err);
+  }
+};
+
+
   return (
     <div
       className={`grid gap-4 ${
@@ -116,29 +157,57 @@ const ContentGrid = ({ items, type }) => {
       {items.map((item) => (
         <div
           key={item.id}
-          className="relative group overflow-hidden rounded-lg shadow-sm cursor-pointer border border-gray-200 transition-transform transform hover:scale-[1.02] active:scale-100"
+          className="relative group overflow-hidden rounded-lg shadow-sm cursor-pointer border border-gray-200"
         >
-          
-          <img
-            src={item?.url || item?.imageUrl || item?.videoUrl}
-            alt={`${type} thumbnail`}
-            className={`w-full h-full object-cover transition-opacity duration-300 group-hover:opacity-90 ${
-              isReel ? "aspect-[9/16]" : isStory ? "aspect-[9/16]" : "aspect-[1/1]"
-            }`}
-          />
-          <div className="absolute inset-0 bg-black bg-opacity-40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-            {isStory ? (
-              <div className="flex items-center text-white text-sm font-semibold">
-                <Layers size={16} className="mr-1" />
-                {item.views} views
-              </div>
-            ) : (
-              <div className="flex items-center text-white text-sm font-semibold">
-                <Sparkles size={16} className="mr-1" />
-                {item.likes} likes
+          {/* Three-dot menu */}
+          <div data-dropdown-root="true" className="absolute top-2 right-2 z-10">
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                const rect = e.currentTarget.getBoundingClientRect();
+                setMenuPos({ top: rect.bottom + 8, left: rect.right - 120 });
+                setOpenMenuId(openMenuId === item.id ? null : item.id);
+              }}
+              className="p-1.5 rounded-full bg-black bg-opacity-50 text-white hover:bg-opacity-70 focus:outline-none opacity-0 group-hover:opacity-100 transition-opacity duration-200"
+              aria-label="More options"
+            >
+              <MoreVertical size={16} />
+            </button>
+            {openMenuId === item.id && (
+              <div className="fixed w-30 bg-white border border-gray-200 rounded-md shadow-lg z-50" style={{ top: menuPos.top, left: menuPos.left }}>
+                <button
+                  onClick={(e) => { 
+                    e.stopPropagation(); 
+                    handleDelete(item.id);
+                  }}
+                  className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded-md"
+                  title="Delete item"
+                  type="button"
+                >
+                  <Trash2 size={16} />
+                  Delete
+                </button>
               </div>
             )}
           </div>
+      { item.imageUrl ?   
+          <img
+            src={ item?.imageUrl}
+            alt={`${type} thumbnail`}
+            className={`w-full h-full object-cover ${
+              isReel ? "aspect-[9/16]" : isStory ? "aspect-[9/16]" : "aspect-[1/1]"
+            }`}
+          />
+          :
+        //  item.videoUrl?
+           <video
+            src={item?.videoUrl}
+            alt={`${type} thumbnail`}
+            className={`w-full h-full object-cover ${
+              isReel ? "aspect-[9/16]" : isStory ? "aspect-[9/16]" : "aspect-[1/1]"
+            }`}
+          />
+}
         </div>
       ))}
     </div>
@@ -150,9 +219,7 @@ export default function UserProfileDashboard({ selectedUser, onBackToUsers }) {
   const { data: postData, loading: usersLoading, error: usersError } = useQuery(GET_ALL_POSTS,{variables : {userId:selectedUser?.id}});
   const { data: videoData, loading: videoLoading, error: videoError } = useQuery(GET_USER_VIDEOS,{variables:{userId:selectedUser?.id}});
   
-  
-  console.log(videoData?.getUserVideos);
-  
+    
   // Prepare real posts data - transform backend data to match expected structure
   const realPosts = (postData?.getAllPosts || []).map(post => ({
     id: post.id,
