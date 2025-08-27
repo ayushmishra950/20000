@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useMutation, useQuery } from '@apollo/client';
-import { FOLLOW_AND_UNFOLLOW, SUGGESTED_USERS } from '../../graphql/mutations'; // ✅ make sure path is correct
+import { FOLLOW_AND_UNFOLLOW, SUGGESTED_USERS, BLOCK_USER, UNBLOCK_USER } from '../../graphql/mutations'; // ✅ make sure path is correct
 
 import { FaSearch, FaUser, FaTimes, FaHeart, FaComment, FaPaperPlane, FaThumbsUp } from 'react-icons/fa';
 import { Link, useNavigate } from 'react-router-dom';
@@ -16,24 +16,31 @@ const SearchPage = () => {
   const [showUserDetails, setShowUserDetails] = useState(false);
   const [recentSearches, setRecentSearches] = useState([]);
   const [showSuggestions, setShowSuggestions] = useState(true);
-  const [realSuggestion,setRealSuggestion]  = useState([]);
+  const [realSuggestion, setRealSuggestion] = useState([]);
   const navigate = useNavigate();
   const token = sessionStorage.getItem('user');
   const suggestionsRowRef = React.useRef(null);
   const [showLeftArrow, setShowLeftArrow] = React.useState(false);
   const [showRightArrow, setShowRightArrow] = React.useState(false);
-   let tokens = "";
-   useEffect(()=>{
-      const decodedUser = GetTokenFromCookie();
-    console.log("User Info:", decodedUser);
-     tokens = decodedUser?.id
-  },[])
- 
-useEffect(() => {
-  const testQuery = async () => {
-    try {
-      const res = await axios.post('http://localhost:5000/graphql', {
-        query: `
+  const [tokenUser, setTokenUser] = useState();
+
+
+
+  let tokens = "";
+  useEffect(() => {
+    const decodedUser = GetTokenFromCookie();
+    tokens = decodedUser?.id
+
+    if (decodedUser?.id) {
+      setTokenUser(decodedUser)
+    }
+  }, [])
+
+  useEffect(() => {
+    const testQuery = async () => {
+      try {
+        const res = await axios.post('http://localhost:5000/graphql', {
+          query: `
           query GetSuggestions($userId: ID!) {
             suggestedUsers(userId: $userId) {
               id
@@ -67,22 +74,22 @@ useEffect(() => {
             }
           }
         `,
-        variables: { userId:tokens}
-      }, {
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      });
-       setRealSuggestion(res.data?.data)
-      console.log("Test Axios Result:", res.data.data);
-    } catch (err) {
-      console.error("Axios Error:", err.response?.data || err.message);
-    }
-  };
+          variables: { userId: tokens }
+        }, {
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        });
+        setRealSuggestion(res.data?.data)
+        console.log("Test Axios Result:", res.data.data);
+      } catch (err) {
+        console.error("Axios Error:", err.response?.data || err.message);
+      }
+    };
 
-  testQuery();
-}, []);
-    
+    testQuery();
+  }, []);
+
   const dummySuggestions = [
     {
       id: 'dummy1',
@@ -106,7 +113,7 @@ useEffect(() => {
       bio: 'Yet another demo user.',
     },
   ];
-   const suggestedUsers = realSuggestion?.suggestedUsers || [];
+  const suggestedUsers = realSuggestion?.suggestedUsers || [];
   const showDummySuggestions = !suggestedUsers.length;
   const suggestionsToShow = showDummySuggestions ? dummySuggestions : suggestedUsers;
 
@@ -152,18 +159,18 @@ useEffect(() => {
   }, [recentSearches]);
 
   const handleSearch = async (query = searchQuery) => {
-    if (!query.trim()) {
+    if (!query.trim() || !tokenUser?.id) {
       setSearchResults([]);
       setShowSuggestions(true);
-      return;
+      console.log("Search - Query:", query, tokens);
+      return alert("Please enter a valid username.");
     }
-
     setIsLoading(true);
     setShowSuggestions(false);
 
     const graphqlQuery = `
-      query searchUsers($username: String!) {
-        searchUsers(username: $username) {
+      query searchUsers($username: String!,$userId: ID!) {
+        searchUsers(username: $username, userId: $userId) {
           id
           name
           username
@@ -200,13 +207,13 @@ useEffect(() => {
         }
       }
     `;
-    
+
     console.log("Search - Using GraphQL query:", graphqlQuery);
 
     try {
       const response = await axios.post(
         'http://localhost:5000/graphql',
-        { query: graphqlQuery, variables: { username: query } },
+        { query: graphqlQuery, variables: { username: query, userId: tokenUser?.id } },
         {
           headers: { 'Content-Type': 'application/json' },
           withCredentials: true,
@@ -216,15 +223,15 @@ useEffect(() => {
       console.log("Search - Raw response from server:", response.data);
       const { data, errors } = response.data;
 
-     if (data?.searchUsers) {
-  const blockedUser = data.searchUsers.find(
-    (user) => user.name.toLowerCase() === query.toLowerCase() && user.is_blocked
-  );
+      if (data?.searchUsers) {
+        const blockedUser = data.searchUsers.find(
+          (user) => user.name.toLowerCase() === query.toLowerCase() && user.is_blocked
+        );
 
-  if (blockedUser) {
-        return;
-  }
-}
+        if (blockedUser) {
+          return;
+        }
+      }
 
 
       if (errors && errors.length > 0) {
@@ -240,11 +247,11 @@ useEffect(() => {
             });
           }
         });
-        
+
         // Check the structure of the first user's posts to debug
         if (data.searchUsers.length > 0 && data.searchUsers[0].posts) {
           console.log("Search - First user's posts:", data.searchUsers[0].posts);
-          
+
           // Check the structure of likes and comments in the first post
           const firstPost = data.searchUsers[0].posts[0];
           if (firstPost) {
@@ -252,7 +259,7 @@ useEffect(() => {
             console.log("Search - First post comments:", firstPost.comments);
           }
         }
-        
+
         const validUsers = data.searchUsers.filter(user => user && user.id && user.name).map(user => {
           // Process each post to ensure likes and comments are properly structured
           const processedPosts = (user.posts || []).map(post => {
@@ -372,14 +379,14 @@ useEffect(() => {
       updateArrowVisibility();
       const container = suggestionsRowRef.current;
       if (!container) return;
-      
+
       try {
         container.addEventListener('scroll', updateArrowVisibility);
         window.addEventListener('resize', updateArrowVisibility);
       } catch (error) {
         console.error("Error adding event listeners:", error);
       }
-      
+
       return () => {
         try {
           container.removeEventListener('scroll', updateArrowVisibility);
@@ -555,32 +562,32 @@ useEffect(() => {
           onClose={closeUserDetails}
           updateUser={(updatedUser) => setSelectedUser(updatedUser)}
           setRecentSearches={setRecentSearches}
-                     persistUserInLists={(updatedUser) => {
-             // Update searchResults list
-             setSearchResults(prev => prev.map(u => u.id === updatedUser.id ? { ...u, ...updatedUser } : u));
- 
-             // Update recent searches list and localStorage
-             setRecentSearches(prev => {
-               const updated = prev.map(u => u.id === updatedUser.id ? { ...u, ...updatedUser } : u);
-               try { localStorage.setItem('recentSearches', JSON.stringify(updated)); } catch {}
-               return updated;
-             });
- 
-             // Update suggestions if present in realSuggestion
-             setRealSuggestion(prev => {
-               if (!prev || !Array.isArray(prev.suggestedUsers)) return prev;
-               const updatedSuggestions = prev.suggestedUsers.map(u => u.id === updatedUser.id ? { ...u, ...updatedUser } : u);
-               return { ...prev, suggestedUsers: updatedSuggestions };
-             });
-           }}
-           updateRecentSearches={(updatedUser) => {
-             // Force update recent searches immediately
-             setRecentSearches(prev => {
-               const updated = prev.map(u => u.id === updatedUser.id ? { ...u, ...updatedUser } : u);
-               try { localStorage.setItem('recentSearches', JSON.stringify(updated)); } catch {}
-               return updated;
-             });
-           }}
+          persistUserInLists={(updatedUser) => {
+            // Update searchResults list
+            setSearchResults(prev => prev.map(u => u.id === updatedUser.id ? { ...u, ...updatedUser } : u));
+
+            // Update recent searches list and localStorage
+            setRecentSearches(prev => {
+              const updated = prev.map(u => u.id === updatedUser.id ? { ...u, ...updatedUser } : u);
+              try { localStorage.setItem('recentSearches', JSON.stringify(updated)); } catch { }
+              return updated;
+            });
+
+            // Update suggestions if present in realSuggestion
+            setRealSuggestion(prev => {
+              if (!prev || !Array.isArray(prev.suggestedUsers)) return prev;
+              const updatedSuggestions = prev.suggestedUsers.map(u => u.id === updatedUser.id ? { ...u, ...updatedUser } : u);
+              return { ...prev, suggestedUsers: updatedSuggestions };
+            });
+          }}
+          updateRecentSearches={(updatedUser) => {
+            // Force update recent searches immediately
+            setRecentSearches(prev => {
+              const updated = prev.map(u => u.id === updatedUser.id ? { ...u, ...updatedUser } : u);
+              try { localStorage.setItem('recentSearches', JSON.stringify(updated)); } catch { }
+              return updated;
+            });
+          }}
         />
       )}
     </div>
@@ -620,7 +627,7 @@ const UserCard = ({ user, onClick }) => (
       </div>
       {/* Action Button */}
       <div className="flex-shrink-0">
-        <button 
+        <button
           onClick={e => { e.stopPropagation(); onClick(); }}
           className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors"
         >
@@ -637,7 +644,7 @@ const RecentSearchCard = ({ user, onClick, onRemove }) => (
       <div className="flex items-center space-x-3" onClick={onClick}>
         <img
           src={user?.profileImage || `https://ui-avatars.com/api/?name=${encodeURIComponent(user?.name || 'Guest')}&background=random`
-}
+          }
           alt={user?.name}
           className="w-10 h-10 rounded-full object-cover"
         />
@@ -659,21 +666,21 @@ const RecentSearchCard = ({ user, onClick, onRemove }) => (
 // Debug helper function
 const debugPostData = (post) => {
   if (!post) return "No post data";
-  
-  const likesInfo = Array.isArray(post.likes) 
-    ? `${post.likes.length} likes (array)` 
+
+  const likesInfo = Array.isArray(post.likes)
+    ? `${post.likes.length} likes (array)`
     : `likes: ${typeof post.likes} (not array)`;
-    
-  const commentsInfo = Array.isArray(post.comments) 
-    ? `${post.comments.length} comments (array)` 
+
+  const commentsInfo = Array.isArray(post.comments)
+    ? `${post.comments.length} comments (array)`
     : `comments: ${typeof post.comments} (not array)`;
-    
+
   return `Post ${post.id}: ${likesInfo}, ${commentsInfo}`;
 };
 
 const UserDetailsModal = ({ user, onClose, updateUser, setRecentSearches, persistUserInLists, updateRecentSearches }) => {
   console.log("UserDetailsModal initialized with user:", user?.id, "and posts count:", user?.posts?.length);
-  
+
   // Debug the structure of posts data
   if (user?.posts) {
     console.log("UserDetailsModal - Posts data structure:");
@@ -681,11 +688,12 @@ const UserDetailsModal = ({ user, onClose, updateUser, setRecentSearches, persis
       console.log(debugPostData(post));
     });
   }
-  
+
   const [followUser] = useMutation(FOLLOW_AND_UNFOLLOW);
   const loggedInUserId = JSON.parse(sessionStorage.getItem('user'))?.id;
   const loggedInUser = JSON.parse(sessionStorage.getItem('user'));
   const [isFollowing, setIsFollowing] = useState(false);
+  const [isBlocked, setIsBlocked] = useState(false);
   const [followersCount, setFollowersCount] = useState(user?.followers?.length || 0);
   const [followLoading, setFollowLoading] = useState(false);
   const [userInteracted, setUserInteracted] = useState(false);
@@ -693,23 +701,36 @@ const UserDetailsModal = ({ user, onClose, updateUser, setRecentSearches, persis
   const [selectedPost, setSelectedPost] = useState(null);
   const [showCommentInput, setShowCommentInput] = useState({});
   const [commentText, setCommentText] = useState({});
-  
+  const [tokenUser, setTokenUser] = useState();
+
+  const [block] = useMutation(BLOCK_USER);
+  const [unblock] = useMutation(UNBLOCK_USER);
+
+  useEffect(() => {
+    const decodedUser = GetTokenFromCookie();
+
+    if (decodedUser?.id) {
+      setTokenUser(decodedUser)
+    }
+  }, [])
+
+
   // Initialize with data from user object if available
   const initialLikesMap = {};
   const initialCommentsMap = {};
   const initialLikedMap = {};
-  
+
   if (user?.posts) {
     user.posts.forEach(post => {
       // Use explicit count properties if available, otherwise calculate from arrays
-      initialLikesMap[post.id] = post.likesCount !== undefined ? post.likesCount : 
-                                (Array.isArray(post.likes) ? post.likes.length : 0);
-      
-      initialCommentsMap[post.id] = post.commentsCount !== undefined ? post.commentsCount : 
-                                   (Array.isArray(post.comments) ? post.comments.length : 0);
-      
+      initialLikesMap[post.id] = post.likesCount !== undefined ? post.likesCount :
+        (Array.isArray(post.likes) ? post.likes.length : 0);
+
+      initialCommentsMap[post.id] = post.commentsCount !== undefined ? post.commentsCount :
+        (Array.isArray(post.comments) ? post.comments.length : 0);
+
       initialLikedMap[post.id] = Array.isArray(post.likes) && post.likes.some(like => like.user?.id === loggedInUserId);
-      
+
       console.log(`UserDetailsModal - Post ${post.id} initialized with:`, {
         likesCount: initialLikesMap[post.id],
         commentsCount: initialCommentsMap[post.id],
@@ -719,7 +740,7 @@ const UserDetailsModal = ({ user, onClose, updateUser, setRecentSearches, persis
     console.log("UserDetailsModal - Initial likes map:", initialLikesMap);
     console.log("UserDetailsModal - Initial comments map:", initialCommentsMap);
   }
-  
+
   const [postLikes, setPostLikes] = useState(initialLikesMap);
   const [postComments, setPostComments] = useState(initialCommentsMap);
   const [isLiked, setIsLiked] = useState(initialLikedMap);
@@ -747,24 +768,24 @@ const UserDetailsModal = ({ user, onClose, updateUser, setRecentSearches, persis
           likesArray: post.likes,
           commentsArray: post.comments
         });
-        
+
         // Use explicit count properties if available, otherwise calculate from arrays
-        const likesCount = post.likesCount !== undefined ? post.likesCount : 
-                          (Array.isArray(post.likes) ? post.likes.length : 0);
-        
-        const commentsCount = post.commentsCount !== undefined ? post.commentsCount : 
-                             (Array.isArray(post.comments) ? post.comments.length : 0);
-        
+        const likesCount = post.likesCount !== undefined ? post.likesCount :
+          (Array.isArray(post.likes) ? post.likes.length : 0);
+
+        const commentsCount = post.commentsCount !== undefined ? post.commentsCount :
+          (Array.isArray(post.comments) ? post.comments.length : 0);
+
         console.log(`UserDetailsModal - Post ${post.id} final counts: ${likesCount} likes, ${commentsCount} comments`);
-        
+
         // Store counts in state maps
         likesMap[post.id] = likesCount;
         commentsMap[post.id] = commentsCount;
-        
+
         // Check if the current user has liked this post
         const userLiked = Array.isArray(post.likes) && post.likes.some(like => like.user?.id === loggedInUserId);
         likedMap[post.id] = userLiked;
-        
+
         // Initialize UI state
         commentInputMap[post.id] = false;
         commentTextMap[post.id] = '';
@@ -798,7 +819,7 @@ const UserDetailsModal = ({ user, onClose, updateUser, setRecentSearches, persis
 
     const wasFollowing = isFollowing;
     const nowFollowing = !wasFollowing;
-    
+
     console.log('Follow toggle:', { userId: user.id, wasFollowing, nowFollowing, loggedInUserId });
 
     // Snapshot for rollback
@@ -823,9 +844,9 @@ const UserDetailsModal = ({ user, onClose, updateUser, setRecentSearches, persis
     } else {
       setFollowersCount(prev => (prev > 0 ? prev - 1 : 0));
     }
-         if (updateUser) updateUser(optimisticUser);
-     if (persistUserInLists) persistUserInLists(optimisticUser);
-     if (updateRecentSearches) updateRecentSearches(optimisticUser);
+    if (updateUser) updateUser(optimisticUser);
+    if (persistUserInLists) persistUserInLists(optimisticUser);
+    if (updateRecentSearches) updateRecentSearches(optimisticUser);
 
     try {
       console.log('Sending follow request for user:', user.id);
@@ -858,9 +879,9 @@ const UserDetailsModal = ({ user, onClose, updateUser, setRecentSearches, persis
           followers: finalFollowers,
           following: serverUser.following ?? user.following
         };
-                 if (updateUser) updateUser(mergedUser);
-         if (persistUserInLists) persistUserInLists(mergedUser);
-         if (updateRecentSearches) updateRecentSearches(mergedUser);
+        if (updateUser) updateUser(mergedUser);
+        if (persistUserInLists) persistUserInLists(mergedUser);
+        if (updateRecentSearches) updateRecentSearches(mergedUser);
       } else {
         // If server didn't return data, trust our optimistic update
         console.log('Server returned no data, keeping optimistic update');
@@ -871,11 +892,33 @@ const UserDetailsModal = ({ user, onClose, updateUser, setRecentSearches, persis
       setIsFollowing(wasFollowing);
       setUserInteracted(false);
       setFollowersCount(prevUserSnapshot.followers.length || 0);
-             if (updateUser) updateUser(prevUserSnapshot);
-       if (persistUserInLists) persistUserInLists(prevUserSnapshot);
-       if (updateRecentSearches) updateRecentSearches(prevUserSnapshot);
+      if (updateUser) updateUser(prevUserSnapshot);
+      if (persistUserInLists) persistUserInLists(prevUserSnapshot);
+      if (updateRecentSearches) updateRecentSearches(prevUserSnapshot);
     } finally {
       setFollowLoading(false);
+    }
+  };
+
+  const handleBlockUser = async (userId) => {
+    if(!tokenUser?.id || !userId){return}
+    try {
+      const { data } = await block({
+        variables: { userId: tokenUser?.id, targetUserId: userId }
+      });
+        setIsBlocked(true);
+
+      if (data?.blockUser) {
+        console.log('User blocked successfully', data);
+
+        // Close the user details modal
+        // setSelectedUser(null);
+        // setShowUserDetails(false);
+        // Optionally remove from search results
+        // setSearchResults(prev => prev.filter(user => user.id !== userId));
+      }
+    } catch (error) {
+      console.error('Error blocking user:', error);
     }
   };
 
@@ -883,10 +926,10 @@ const UserDetailsModal = ({ user, onClose, updateUser, setRecentSearches, persis
     // Find the post
     const post = user.posts.find(p => p.id === postId);
     if (!post) return;
-    
+
     // Update UI optimistically
     const newIsLiked = !isLiked[postId];
-    
+
     // Get current likes count from the most reliable source
     let currentLikes = 0;
     if (post.likesCount !== undefined) {
@@ -896,45 +939,45 @@ const UserDetailsModal = ({ user, onClose, updateUser, setRecentSearches, persis
     } else if (Array.isArray(post.likes)) {
       currentLikes = post.likes.length;
     }
-    
+
     const newLikeCount = newIsLiked ? currentLikes + 1 : currentLikes - 1;
-    
+
     console.log(`Liking post ${postId}: current likes=${currentLikes}, new likes=${newLikeCount}`);
-    
+
     // Update state immediately for responsive UI
     setIsLiked(prev => ({ ...prev, [postId]: newIsLiked }));
     setPostLikes(prev => ({ ...prev, [postId]: newLikeCount }));
-    
+
     // Also update the post object's explicit count
     if (post.likesCount !== undefined) {
       post.likesCount = newLikeCount;
     }
-    
+
     try {
       // Send request to backend - using the same format as in Main.js
       const query = `mutation LikePost($userId: ID!, $postId: ID!) { 
         LikePost(userId: $userId, postId: $postId)
       }`;
-      
+
       const variables = { userId: loggedInUserId, postId };
 
-      const response = await axios.post("http://localhost:5000/graphql", 
-        { query, variables }, 
-        { headers: { 'Content-Type': 'application/json' }}
+      const response = await axios.post("http://localhost:5000/graphql",
+        { query, variables },
+        { headers: { 'Content-Type': 'application/json' } }
       );
-      
+
       console.log("Like response:", response.data);
-      
+
       // Update the user object to reflect the like change
-      const updatedUser = {...user};
+      const updatedUser = { ...user };
       const postIndex = updatedUser.posts.findIndex(p => p.id === postId);
-      
+
       if (postIndex !== -1) {
         // Make sure likes array exists
         if (!Array.isArray(updatedUser.posts[postIndex].likes)) {
           updatedUser.posts[postIndex].likes = [];
         }
-        
+
         // If the user has liked the post, add their like
         if (newIsLiked) {
           updatedUser.posts[postIndex].likes.push({
@@ -950,7 +993,7 @@ const UserDetailsModal = ({ user, onClose, updateUser, setRecentSearches, persis
             like => like.user?.id !== loggedInUserId
           );
         }
-        
+
         // Update the user object
         updateUser(updatedUser);
       }
@@ -958,31 +1001,31 @@ const UserDetailsModal = ({ user, onClose, updateUser, setRecentSearches, persis
       console.error("Error liking post:", err);
       // Revert UI changes on error
       setIsLiked(prev => ({ ...prev, [postId]: !newIsLiked }));
-      setPostLikes(prev => ({ 
-        ...prev, 
-        [postId]: newIsLiked ? currentLikes - 1 : currentLikes + 1 
+      setPostLikes(prev => ({
+        ...prev,
+        [postId]: newIsLiked ? currentLikes - 1 : currentLikes + 1
       }));
     }
   };
 
   const handleCommentToggle = (postId) => {
-    setShowCommentInput(prev => ({ 
-      ...prev, 
-      [postId]: !prev[postId] 
+    setShowCommentInput(prev => ({
+      ...prev,
+      [postId]: !prev[postId]
     }));
   };
 
   const handleCommentSubmit = async (e, postId) => {
     e.preventDefault();
-    
+
     if (!commentText[postId]?.trim()) return;
-    
+
     const text = commentText[postId].trim();
-    
+
     // Find the post
     const post = user.posts.find(p => p.id === postId);
     if (!post) return;
-    
+
     // Get current comments count from the most reliable source
     let currentComments = 0;
     if (post.commentsCount !== undefined) {
@@ -992,22 +1035,22 @@ const UserDetailsModal = ({ user, onClose, updateUser, setRecentSearches, persis
     } else if (Array.isArray(post.comments)) {
       currentComments = post.comments.length;
     }
-    
+
     const newCommentCount = currentComments + 1;
-    
+
     console.log(`Commenting on post ${postId}: current comments=${currentComments}, new comments=${newCommentCount}`);
-    
+
     // Update UI optimistically
     setPostComments(prev => ({ ...prev, [postId]: newCommentCount }));
-    
+
     // Also update the post object's explicit count
     if (post.commentsCount !== undefined) {
       post.commentsCount = newCommentCount;
     }
-    
+
     // Clear comment input
     setCommentText(prev => ({ ...prev, [postId]: '' }));
-    
+
     try {
       // Send request to backend - using the same format as in Main.js
       const query = `mutation CommentPost($userId: ID!, $postId: ID!, $text: String!) { 
@@ -1021,30 +1064,30 @@ const UserDetailsModal = ({ user, onClose, updateUser, setRecentSearches, persis
           }
         }
       }`;
-      
-      const variables = { 
-        userId: loggedInUserId, 
-        postId, 
-        text: text 
+
+      const variables = {
+        userId: loggedInUserId,
+        postId,
+        text: text
       };
 
-      const response = await axios.post("http://localhost:5000/graphql", 
-        { query, variables }, 
-        { headers: { 'Content-Type': 'application/json' }}
+      const response = await axios.post("http://localhost:5000/graphql",
+        { query, variables },
+        { headers: { 'Content-Type': 'application/json' } }
       );
-      
+
       console.log("Comment response:", response.data);
-      
+
       // Update the user object with the new comment
-      const updatedUser = {...user};
+      const updatedUser = { ...user };
       const postIndex = updatedUser.posts.findIndex(p => p.id === postId);
-      
+
       if (postIndex !== -1) {
         // Make sure comments array exists
         if (!Array.isArray(updatedUser.posts[postIndex].comments)) {
           updatedUser.posts[postIndex].comments = [];
         }
-        
+
         // Add the new comment to the post
         updatedUser.posts[postIndex].comments.push({
           id: `temp-${Date.now()}`,
@@ -1057,7 +1100,7 @@ const UserDetailsModal = ({ user, onClose, updateUser, setRecentSearches, persis
           },
           commentedAt: new Date().toISOString()
         });
-        
+
         // Update the user object
         updateUser(updatedUser);
       }
@@ -1091,209 +1134,223 @@ const UserDetailsModal = ({ user, onClose, updateUser, setRecentSearches, persis
             <FaTimes className="text-2xl" />
           </button>
         </div>
-        
+
         {/* Scrollable Content */}
         <div className="overflow-y-auto max-h-[calc(90vh-80px)]">
 
-        {/* Profile Info */}
-        <div className="p-6 flex flex-col items-center">
-          <div className="relative group mb-4">
-            <img
-              src={user.profileImage || 'https://via.placeholder.com/100x100?text=User'}
-              alt={user.name}
-              className="w-24 h-24 rounded-full object-cover border-4 border-purple-200 shadow-lg group-hover:scale-105 transition-transform duration-300"
-              style={{ boxShadow: '0 4px 32px 0 rgba(168,139,250,0.10)' }}
-            />
-          </div>
-          <h3 className="text-2xl font-extrabold text-purple-700 mb-1 animate-fade-in">{user.name || 'Unknown User'}</h3>
-          {user.username && <p className="text-md text-purple-400 mb-1 animate-fade-in-slow">@{user.username}</p>}
-          {user.bio && <p className="text-gray-600 text-center mb-2 animate-fade-in-slow">{user.bio}</p>}
-          <div className="flex items-center justify-center gap-8 py-3 border-t border-b w-full my-4 animate-fade-in-slow">
-            <div className="text-center">
-              <div className="font-bold text-lg text-purple-700">{user.posts?.length || 0}</div>
-              <div className="text-xs text-gray-500">Posts</div>
+          {/* Profile Info */}
+          <div className="p-6 flex flex-col items-center">
+            <div className="relative group mb-4">
+              <img
+                src={user.profileImage || 'https://via.placeholder.com/100x100?text=User'}
+                alt={user.name}
+                className="w-24 h-24 rounded-full object-cover border-4 border-purple-200 shadow-lg group-hover:scale-105 transition-transform duration-300"
+                style={{ boxShadow: '0 4px 32px 0 rgba(168,139,250,0.10)' }}
+              />
             </div>
-            <div className="text-center">
-              <div className="font-bold text-lg text-purple-700">{user.followers?.length || 0}</div>
-              <div className="text-xs text-gray-500">Followers</div>
+            <h3 className="text-2xl font-extrabold text-purple-700 mb-1 animate-fade-in">{user.name || 'Unknown User'}</h3>
+            {user.username && <p className="text-md text-purple-400 mb-1 animate-fade-in-slow">@{user.username}</p>}
+            {user.bio && <p className="text-gray-600 text-center mb-2 animate-fade-in-slow">{user.bio}</p>}
+            <div className="flex items-center justify-center gap-8 py-3 border-t border-b w-full my-4 animate-fade-in-slow">
+              <div className="text-center">
+                <div className="font-bold text-lg text-purple-700">{user.posts?.length || 0}</div>
+                <div className="text-xs text-gray-500">Posts</div>
+              </div>
+              <div className="text-center">
+                <div className="font-bold text-lg text-purple-700">{user.followers?.length || 0}</div>
+                <div className="text-xs text-gray-500">Followers</div>
+              </div>
+              <div className="text-center">
+                <div className="font-bold text-lg text-purple-700">{user.following?.length || 0}</div>
+                <div className="text-xs text-gray-500">Following</div>
+              </div>
             </div>
-            <div className="text-center">
-              <div className="font-bold text-lg text-purple-700">{user.following?.length || 0}</div>
-              <div className="text-xs text-gray-500">Following</div>
+            {/* Follow/Unfollow button moved just below counts */}
+            <div className="w-full flex items-center justify-center gap-2 mb-2">
+              <button
+                onClick={handleFollowToggle}
+                className={`px-4 py-2 text-sm rounded-lg font-semibold shadow-sm transition-all duration-200 focus:outline-none ${isFollowing ? 'bg-gray-300 hover:bg-gray-400 text-gray-800' : 'bg-purple-600 hover:bg-purple-700 text-white'
+                  }`}
+              >
+                {isFollowing ? 'Unfollow' : 'Follow'}
+              </button>
+              {/* <button
+              onClick={() => handleBlockUser(user.id)}
+              className="px-4 py-2 text-sm rounded-lg font-semibold shadow-sm transition-all duration-200 focus:outline-none bg-red-600 hover:bg-red-700 text-white"
+            >
+              Block
+            </button> */}
+
+              <button
+                onClick={() => handleBlockUser(user.id)}
+                className={`px-4 py-2 text-sm rounded-lg font-semibold shadow-sm transition-all duration-200 focus:outline-none ${isBlocked ? 'bg-gray-300 hover:bg-gray-400 text-gray-800' : 'bg-red-600 hover:bg-red-700 text-white'
+                  }`}
+              >
+                {isBlocked ? 'Unblock' : 'Block'}
+              </button>
+
             </div>
-          </div>
-          {/* Follow/Unfollow button moved just below counts */}
-          <div className="w-full flex items-center justify-center mb-2">
-            <button
-              onClick={handleFollowToggle}
-              className={`px-4 py-2 text-sm rounded-lg font-semibold shadow-sm transition-all duration-200 focus:outline-none ${
-                isFollowing ? 'bg-gray-300 hover:bg-gray-400 text-gray-800' : 'bg-purple-600 hover:bg-purple-700 text-white'
-              }`}
-            >
-              {isFollowing ? 'Unfollow' : 'Follow'}
-            </button>
-          </div>
-          {/* Tabs */}
-          <div className="flex border-b mt-4 w-full animate-fade-in-slow">
-            <button
-              onClick={() => setActiveTab('posts')}
-              className={`flex-1 py-2 text-sm font-semibold transition-all duration-200 ${activeTab === 'posts' ? 'text-purple-600 border-b-2 border-purple-600 bg-purple-50' : 'text-gray-500 hover:text-purple-400'}`}
-            >
-              Posts
-            </button>
-            <button
-              onClick={() => setActiveTab('shorts')}
-              className={`flex-1 py-2 text-sm font-semibold transition-all duration-200 ${activeTab === 'shorts' ? 'text-purple-600 border-b-2 border-purple-600 bg-purple-50' : 'text-gray-500 hover:text-purple-400'}`}
-            >
-              Shorts
-            </button>
-          </div>
-          {/* Tab Content */}
-          <div className="mt-4 w-full animate-fade-in-slow">
-            {activeTab === 'posts' && (
-              <div className="space-y-4">
-                {user.posts && user.posts.length > 0 ? (
-                  user.posts.map(post => (
-                    <div key={post.id} className="border rounded-2xl overflow-hidden bg-white shadow transition-shadow duration-300 hover:shadow-lg hover:-translate-y-1 hover:border-purple-400 border-gray-200 transition-transform group">
-                      {/* Post Header */}
-                      <div className="flex items-center p-3 bg-gradient-to-r from-purple-50 to-white border-b border-gray-100">
-                        <img 
-                          src={user.profileImage || 'https://via.placeholder.com/40'} 
-                          alt={user.name} 
-                          className="w-8 h-8 rounded-full mr-2 border-2 border-purple-200"
-                        />
-                        <div>
-                          <div className="font-semibold text-sm text-purple-700">{user.name}</div>
-                          {user.username && <div className="text-xs text-gray-500">@{user.username}</div>}
-                        </div>
-                      </div>
-                      {/* Post Image */}
-                      <img 
-                        src={post.imageUrl || 'https://via.placeholder.com/400'} 
-                        alt={post.caption || 'Post'} 
-                        className="w-full object-cover max-h-80 bg-gray-50"
-                      />
-                      {/* Divider */}
-                      <div className="h-1 bg-gradient-to-r from-purple-100 via-white to-purple-100" />
-                      {/* Post Actions (moved above caption) */}
-                      <div className="flex justify-around py-3 text-sm text-gray-700 border-t border-b bg-white/80">
-                        <button 
-                          onClick={() => handleLikePost(post.id)}
-                          className="flex items-center gap-1 cursor-pointer hover:text-purple-600 transition-colors"
-                        >
-                          <FaHeart className={isLiked[post.id] ? "text-red-500" : ""} size={18} />
-                          <span className="ml-1 font-semibold">{postLikes[post.id] || 0} likes</span>
-                        </button>
-                        <button 
-                          onClick={() => handleCommentToggle(post.id)}
-                          className="flex items-center gap-1 cursor-pointer hover:text-purple-600 transition-colors"
-                        >
-                          <FaComment size={18} />
-                          <span className="ml-1 font-semibold">{postComments[post.id] || 0} comments</span>
-                        </button>
-                        <div className="flex items-center gap-1">
-                          <FaPaperPlane />
-                          <span>Share</span>
-                        </div>
-                        <div className="text-xs text-gray-400 flex items-center">
-                          {new Date(Number(post.createdAt)).toLocaleDateString()}
-                        </div>
-                      </div>
-                      {/* Caption */}
-                      {post.caption && (
-                        <div className="px-4 py-3 bg-purple-50 border-b border-purple-100">
-                          <span className="font-semibold text-sm text-purple-700 mr-2">Caption:</span>
-                          <span className="text-base text-black font-bold">{post.caption}</span>
-                        </div>
-                      )}
-                      {/* Comments Section */}
-                      <div className="px-4 pt-3 pb-2">
-                        {Array.isArray(post.comments) && post.comments.length > 0 && (
-                          <>
-                            <div className="font-semibold text-purple-600 text-sm mb-1">Comments</div>
-                            <div className="space-y-2">
-                              {post.comments.slice(0, selectedPost === post.id ? undefined : 3).map((comment, index) => (
-                                <div key={comment.id || `temp-${index}-${comment.text}`} className="bg-gray-100 rounded-lg px-3 py-1 text-sm flex items-center justify-between">
-                                  <div className="flex items-center">
-                                    <span className="font-bold text-purple-700 mr-2">{comment.user?.name || 'User'}:</span>
-                                    <span className="text-gray-700">{comment.text}</span>
-                                  </div>
-                                  <button
-                                    className="flex items-center gap-1 text-gray-500 hover:text-blue-600 ml-2 focus:outline-none"
-                                    title="Like this comment"
-                                    // onClick={() => handleLikeComment(comment.id)} // Implement logic if needed
-                                  >
-                                    <FaThumbsUp />
-                                    <span className="text-xs">{comment.likesCount || 0}</span>
-                                  </button>
-                                </div>
-                              ))}
-                            </div>
-                            {post.comments.length > 3 && (
-                              <button 
-                                className="text-xs text-blue-500 cursor-pointer hover:underline mt-2"
-                                onClick={() => setSelectedPost(post.id === selectedPost ? null : post.id)}
-                              >
-                                {selectedPost === post.id 
-                                  ? 'Show less' 
-                                  : `View all ${post.comments.length} comments`}
-                              </button>
-                            )}
-                          </>
-                        )}
-                      </div>
-                      {/* Add Comment Section */}
-                      {showCommentInput[post.id] && (
-                        <form 
-                          onSubmit={(e) => handleCommentSubmit(e, post.id)} 
-                          className="px-4 py-3 border-t border-gray-200 bg-white flex gap-2"
-                        >
-                          <input
-                            type="text"
-                            placeholder="Add a comment..."
-                            className="flex-grow border border-gray-300 rounded-full px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400"
-                            value={commentText[post.id] || ''}
-                            onChange={(e) => setCommentText(prev => ({ 
-                              ...prev, 
-                              [post.id]: e.target.value 
-                            }))}
-                            autoFocus
+            {/* Tabs */}
+            <div className="flex border-b mt-4 w-full animate-fade-in-slow">
+              <button
+                onClick={() => setActiveTab('posts')}
+                className={`flex-1 py-2 text-sm font-semibold transition-all duration-200 ${activeTab === 'posts' ? 'text-purple-600 border-b-2 border-purple-600 bg-purple-50' : 'text-gray-500 hover:text-purple-400'}`}
+              >
+                Posts
+              </button>
+              <button
+                onClick={() => setActiveTab('shorts')}
+                className={`flex-1 py-2 text-sm font-semibold transition-all duration-200 ${activeTab === 'shorts' ? 'text-purple-600 border-b-2 border-purple-600 bg-purple-50' : 'text-gray-500 hover:text-purple-400'}`}
+              >
+                Shorts
+              </button>
+            </div>
+            {/* Tab Content */}
+            <div className="mt-4 w-full animate-fade-in-slow">
+              {activeTab === 'posts' && (
+                <div className="space-y-4">
+                  {user.posts && user.posts.length > 0 ? (
+                    user.posts.map(post => (
+                      <div key={post.id} className="border rounded-2xl overflow-hidden bg-white shadow transition-shadow duration-300 hover:shadow-lg hover:-translate-y-1 hover:border-purple-400 border-gray-200 transition-transform group">
+                        {/* Post Header */}
+                        <div className="flex items-center p-3 bg-gradient-to-r from-purple-50 to-white border-b border-gray-100">
+                          <img
+                            src={user.profileImage || 'https://via.placeholder.com/40'}
+                            alt={user.name}
+                            className="w-8 h-8 rounded-full mr-2 border-2 border-purple-200"
                           />
+                          <div>
+                            <div className="font-semibold text-sm text-purple-700">{user.name}</div>
+                            {user.username && <div className="text-xs text-gray-500">@{user.username}</div>}
+                          </div>
+                        </div>
+                        {/* Post Image */}
+                        <img
+                          src={post.imageUrl || 'https://via.placeholder.com/400'}
+                          alt={post.caption || 'Post'}
+                          className="w-full object-cover max-h-80 bg-gray-50"
+                        />
+                        {/* Divider */}
+                        <div className="h-1 bg-gradient-to-r from-purple-100 via-white to-purple-100" />
+                        {/* Post Actions (moved above caption) */}
+                        <div className="flex justify-around py-3 text-sm text-gray-700 border-t border-b bg-white/80">
                           <button
-                            type="submit"
-                            className="bg-purple-600 text-white rounded-full px-4 py-2 text-sm font-semibold hover:bg-purple-700 cursor-pointer transition-transform duration-200 hover:scale-105"
-                            disabled={!commentText[post.id]?.trim()}
+                            onClick={() => handleLikePost(post.id)}
+                            className="flex items-center gap-1 cursor-pointer hover:text-purple-600 transition-colors"
                           >
-                            Post
+                            <FaHeart className={isLiked[post.id] ? "text-red-500" : ""} size={18} />
+                            <span className="ml-1 font-semibold">{postLikes[post.id] || 0} likes</span>
                           </button>
-                        </form>
-                      )}
-                      {!showCommentInput[post.id] && (
-                        <div className="px-4 py-3 border-t bg-white">
                           <button
                             onClick={() => handleCommentToggle(post.id)}
-                            className="w-full text-center text-sm text-purple-600 hover:text-purple-800 transition-colors"
+                            className="flex items-center gap-1 cursor-pointer hover:text-purple-600 transition-colors"
                           >
-                            Add a comment...
+                            <FaComment size={18} />
+                            <span className="ml-1 font-semibold">{postComments[post.id] || 0} comments</span>
                           </button>
+                          <div className="flex items-center gap-1">
+                            <FaPaperPlane />
+                            <span>Share</span>
+                          </div>
+                          <div className="text-xs text-gray-400 flex items-center">
+                            {new Date(Number(post.createdAt)).toLocaleDateString()}
+                          </div>
                         </div>
-                      )}
-                    </div>
-                  ))
-                ) : (
-                  <div className="py-8 text-center text-gray-500">No posts yet</div>
-                )}
-              </div>
-            )}
-            {activeTab === 'shorts' && (
-              <div className="space-y-4">
-                {/* Shorts Placeholder: Replace with actual shorts if available */}
-                <div className="py-8 text-center text-gray-500">No shorts available</div>
-              </div>
-            )}
+                        {/* Caption */}
+                        {post.caption && (
+                          <div className="px-4 py-3 bg-purple-50 border-b border-purple-100">
+                            <span className="font-semibold text-sm text-purple-700 mr-2">Caption:</span>
+                            <span className="text-base text-black font-bold">{post.caption}</span>
+                          </div>
+                        )}
+                        {/* Comments Section */}
+                        <div className="px-4 pt-3 pb-2">
+                          {Array.isArray(post.comments) && post.comments.length > 0 && (
+                            <>
+                              <div className="font-semibold text-purple-600 text-sm mb-1">Comments</div>
+                              <div className="space-y-2">
+                                {post.comments.slice(0, selectedPost === post.id ? undefined : 3).map((comment, index) => (
+                                  <div key={comment.id || `temp-${index}-${comment.text}`} className="bg-gray-100 rounded-lg px-3 py-1 text-sm flex items-center justify-between">
+                                    <div className="flex items-center">
+                                      <span className="font-bold text-purple-700 mr-2">{comment.user?.name || 'User'}:</span>
+                                      <span className="text-gray-700">{comment.text}</span>
+                                    </div>
+                                    <button
+                                      className="flex items-center gap-1 text-gray-500 hover:text-blue-600 ml-2 focus:outline-none"
+                                      title="Like this comment"
+                                    // onClick={() => handleLikeComment(comment.id)} // Implement logic if needed
+                                    >
+                                      <FaThumbsUp />
+                                      <span className="text-xs">{comment.likesCount || 0}</span>
+                                    </button>
+                                  </div>
+                                ))}
+                              </div>
+                              {post.comments.length > 3 && (
+                                <button
+                                  className="text-xs text-blue-500 cursor-pointer hover:underline mt-2"
+                                  onClick={() => setSelectedPost(post.id === selectedPost ? null : post.id)}
+                                >
+                                  {selectedPost === post.id
+                                    ? 'Show less'
+                                    : `View all ${post.comments.length} comments`}
+                                </button>
+                              )}
+                            </>
+                          )}
+                        </div>
+                        {/* Add Comment Section */}
+                        {showCommentInput[post.id] && (
+                          <form
+                            onSubmit={(e) => handleCommentSubmit(e, post.id)}
+                            className="px-4 py-3 border-t border-gray-200 bg-white flex gap-2"
+                          >
+                            <input
+                              type="text"
+                              placeholder="Add a comment..."
+                              className="flex-grow border border-gray-300 rounded-full px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400"
+                              value={commentText[post.id] || ''}
+                              onChange={(e) => setCommentText(prev => ({
+                                ...prev,
+                                [post.id]: e.target.value
+                              }))}
+                              autoFocus
+                            />
+                            <button
+                              type="submit"
+                              className="bg-purple-600 text-white rounded-full px-4 py-2 text-sm font-semibold hover:bg-purple-700 cursor-pointer transition-transform duration-200 hover:scale-105"
+                              disabled={!commentText[post.id]?.trim()}
+                            >
+                              Post
+                            </button>
+                          </form>
+                        )}
+                        {!showCommentInput[post.id] && (
+                          <div className="px-4 py-3 border-t bg-white">
+                            <button
+                              onClick={() => handleCommentToggle(post.id)}
+                              className="w-full text-center text-sm text-purple-600 hover:text-purple-800 transition-colors"
+                            >
+                              Add a comment...
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    ))
+                  ) : (
+                    <div className="py-8 text-center text-gray-500">No posts yet</div>
+                  )}
+                </div>
+              )}
+              {activeTab === 'shorts' && (
+                <div className="space-y-4">
+                  {/* Shorts Placeholder: Replace with actual shorts if available */}
+                  <div className="py-8 text-center text-gray-500">No shorts available</div>
+                </div>
+              )}
+            </div>
+            {/* Bottom actions removed per request; close is available in header */}
           </div>
-          {/* Bottom actions removed per request; close is available in header */}
-        </div>
         </div>
       </div>
       {/* Animations */}
@@ -1372,4 +1429,3 @@ const SuggestionCard = ({ user, onCardClick, onProfileClick }) => {
 };
 
 export default SearchPage;
- 

@@ -24,8 +24,24 @@ const resolvers = {
   Upload: GraphQLUpload,
 
   Query: {
+
+    allSavedReels: async (_, {userId}, context) => {
+    
+    if (!userId) throw new Error("Authentication required");
+
+    const userDoc = await User.findById(userId).populate('saveReels');
+    return userDoc.saveReels;
+  },
+    getArchivedPosts: async (_, { userId }) => {
+      return await Post.find({ createdBy: userId, isArchived: true });
+    },
+    getSavedPosts: async (_, { userId }) => {
+      const user = await User.findById(userId).populate("bookmarks");
+      return user.bookmarks;
+    },
+
     users: async () =>
-      await User.find().select('id name username email phone profileImage is_blocked bio createTime isOnline lastActive').populate('posts', 'id'),
+      await User.find().select('id name username email phone profileImage is_blocked bio createTime isOnline lastActive').populate('posts', 'id').populate('blockedUsers', 'id name username profileImage'),
 
       getMe: async (_, args, { user }) => {
         try {
@@ -197,41 +213,132 @@ getCommentDetails: async (_, { postId, commentId }) => {
 
 
 
-    searchUsers: async (_, { username }) => {
-      try {
-        const users = await User.find({
-          $or: [
-            { name: { $regex: username, $options: 'i' } },
-            { username: { $regex: username, $options: 'i' } }
-          ]
-        })
-          .select('id name username email phone is_blocked profileImage bio createTime followers following posts')
-          .populate('followers', 'id name')
-          .populate('following', 'id name')
-          .populate({
-            path: 'posts',
-            select: 'id caption imageUrl createdAt likes comments',
-            populate: [
-              {
-                path: 'likes.user',
-                select: 'id name username profileImage'
-              },
-              {
-                path: 'comments.user',
-                select: 'id name username profileImage'
-              }
-            ]
-          })
-          .limit(10);
+    // searchUsers: async (_, { username }) => {
+    //   try {
+    //     const users = await User.find({
+    //       $or: [
+    //         { name: { $regex: username, $options: 'i' } },
+    //         { username: { $regex: username, $options: 'i' } }
+    //       ]
+    //     })
+    //       .select('id name username email phone is_blocked profileImage bio createTime followers following posts')
+    //       .populate('followers', 'id name')
+    //       .populate('following', 'id name')
+    //       .populate('blockedUsers', 'id username')
+    //       .populate({
+    //         path: 'posts',
+    //         select: 'id caption imageUrl createdAt likes comments',
+    //         populate: [
+    //           {
+    //             path: 'likes.user',
+    //             select: 'id name username profileImage'
+    //           },
+    //           {
+    //             path: 'comments.user',
+    //             select: 'id name username profileImage'
+    //           }
+    //         ]
+    //       })
+    //       .limit(10);
 
-        return users;
-      } catch (error) {
-        console.error('Search users error:', error);
-        throw new Error('Failed to search users');
-      }
-    },
+    //     return users;
+    //   } catch (error) {
+    //     console.error('Search users error:', error);
+    //     throw new Error('Failed to search users');
+    //   }
+    // },
 
-   
+
+
+
+//     searchUsers: async (_, { username, userId }) => {
+//   try {
+//     // Step 1: Get the current user’s blockedUsers
+//     const currentUser = await User.findById(userId).select('blockedUsers');
+//     const blockedUserIds = currentUser?.blockedUsers?.map(user => user.toString()) || [];
+
+//     // Step 2: Find users matching the search but exclude blocked ones
+//     const users = await User.find({
+//       $or: [
+//         { name: { $regex: username, $options: 'i' } },
+//         { username: { $regex: username, $options: 'i' } }
+//       ],
+//       _id: { $nin: blockedUserIds } // ✅ Exclude blocked users
+//     })
+//       .select('id name username email phone is_blocked profileImage bio createTime followers following posts')
+//       .populate('followers', 'id name')
+//       .populate('following', 'id name')
+//       .populate('blockedUsers', 'id username')
+//       .populate({
+//         path: 'posts',
+//         select: 'id caption imageUrl createdAt likes comments',
+//         populate: [
+//           {
+//             path: 'likes.user',
+//             select: 'id name username profileImage'
+//           },
+//           {
+//             path: 'comments.user',
+//             select: 'id name username profileImage'
+//           }
+//         ]
+//       })
+//       .limit(10);
+
+//     return users;
+//   } catch (error) {
+//     console.error('Search users error:', error);
+//     throw new Error('Failed to search users');
+//   }
+// },
+
+
+
+searchUsers: async (_, { username, userId }) => {
+  try {
+    // Step 1: Get current user’s blockedUsers & blockedBy
+    const currentUser = await User.findById(userId).select('blockedUsers blockedBy');
+
+    const blockedUserIds = currentUser?.blockedUsers?.map(id => id.toString()) || [];
+    const blockedByUserIds = currentUser?.blockedBy?.map(id => id.toString()) || [];
+
+    // Step 2: Merge both lists
+    const allBlockedIds = [...new Set([...blockedUserIds, ...blockedByUserIds])];
+
+    // Step 3: Search and exclude these IDs + current user
+    const users = await User.find({
+      $or: [
+        { name: { $regex: username, $options: 'i' } },
+        { username: { $regex: username, $options: 'i' } }
+      ],
+      _id: { $nin: [...allBlockedIds, userId] }
+    })
+      .select('id name username email phone is_blocked profileImage bio createTime followers following posts')
+      .populate('followers', 'id name')
+      .populate('following', 'id name')
+      .populate('blockedUsers', 'id username')
+      .populate({
+        path: 'posts',
+        select: 'id caption imageUrl createdAt likes comments',
+        populate: [
+          {
+            path: 'likes.user',
+            select: 'id name username profileImage'
+          },
+          {
+            path: 'comments.user',
+            select: 'id name username profileImage'
+          }
+        ]
+      })
+      .limit(10);
+
+    return users;
+  } catch (error) {
+    console.error('Search users error:', error);
+    throw new Error('Failed to search users');
+  }
+},
 
     suggestedUsers: async (_, { userId }) => {
       try {
@@ -269,6 +376,7 @@ getCommentDetails: async (_, { postId, commentId }) => {
           })
           .populate('followers', 'id name')
           .populate('following', 'id name')
+          .populate('blockedUsers', 'id username')
           .populate({
             path: 'posts',
             select: 'id caption imageUrl createdAt likes comments',
@@ -302,6 +410,7 @@ getCommentDetails: async (_, { postId, commentId }) => {
         })
         .populate('followers', 'id name')
         .populate('following', 'id name')
+        .populate('blockedUsers', 'id username')
         .populate({
           path: 'posts',
           select: 'id caption imageUrl createdAt likes comments',
@@ -452,6 +561,112 @@ getCommentDetails: async (_, { postId, commentId }) => {
     },
 
 
+//     block: async (_, { targetUserId, userId }, context) => {
+//   if (!userId || !targetUserId) throw new Error("Missing userId or targetUserId");
+
+//   if (userId === targetUserId) {
+//     throw new Error("You can't block yourself");
+//   }
+
+//   const currentUser = await User.findById(userId);
+//   const targetUser = await User.findById(targetUserId);
+
+//   if (!targetUser) throw new Error("User not found");
+
+//   // Already blocked?
+//   if (currentUser.blockedUsers.includes(targetUserId)) {
+//     throw new Error("User already blocked");
+//   }
+
+//   // Add block
+//   currentUser.blockedUsers.push(targetUserId);
+//   targetUser.blockedBy.push(userId);
+
+//   await currentUser.save();
+//   await targetUser.save();
+
+//   return "User blocked successfully";
+// },
+
+// unblock: async (_, { targetUserId, userId }, context) => {
+//    if (!userId || !targetUserId) throw new Error("Missing userId or targetUserId");;
+
+//   const currentUser = await User.findById(userId);
+//   const targetUser = await User.findById(targetUserId);
+
+//   if (!targetUser) throw new Error("User not found");
+
+//   // Remove block
+//   currentUser.blockedUsers = currentUser.blockedUsers.filter(
+//     id => id.toString() !== targetUserId
+//   );
+
+//   targetUser.blockedBy = targetUser.blockedBy.filter(
+//     id => id.toString() !== userId
+//   );
+
+//   await currentUser.save();
+//   await targetUser.save();
+
+//   return "User unblocked successfully";
+// },
+
+block: async (_, { targetUserId, userId }) => {
+  if (!userId || !targetUserId) throw new Error("Missing userId or targetUserId");
+
+  if (userId === targetUserId) {
+    throw new Error("You can't block yourself");
+  }
+
+  const currentUser = await User.findById(userId);
+  const targetUser = await User.findById(targetUserId);
+
+  if (!targetUser) throw new Error("User not found");
+
+  // Already blocked?
+  if (currentUser.blockedUsers.includes(targetUserId)) {
+    throw new Error("User already blocked");
+  }
+
+  // ✅ Add block
+  currentUser.blockedUsers.push(targetUserId);
+
+  // ✅ Only add to blockedBy if not already there
+  if (!targetUser.blockedBy.includes(userId)) {
+    targetUser.blockedBy.push(userId);
+  }
+
+  await currentUser.save();
+  await targetUser.save();
+
+  return "User blocked successfully";
+},
+
+unblock: async (_, { targetUserId, userId }) => {
+  if (!userId || !targetUserId) throw new Error("Missing userId or targetUserId");
+
+  const currentUser = await User.findById(userId);
+  const targetUser = await User.findById(targetUserId);
+
+  if (!targetUser) throw new Error("User not found");
+
+  // ✅ Remove from blockedUsers of currentUser
+  currentUser.blockedUsers = currentUser.blockedUsers.filter(
+    id => id.toString() !== targetUserId
+  );
+
+  // ✅ Remove from blockedBy of targetUser
+  targetUser.blockedBy = targetUser.blockedBy.filter(
+    id => id.toString() !== userId
+  );
+
+  await currentUser.save();
+  await targetUser.save();
+
+  return "User unblocked successfully";
+},
+
+
     createPost: async (_, { id, caption, image, video, thumbnail }) => {
       let imageUrl = null;
       let videoUrl = null;
@@ -489,6 +704,153 @@ getCommentDetails: async (_, { postId, commentId }) => {
       await User.findByIdAndUpdate(id, { $push: { posts: post._id } });
       return post;
     },
+
+   // 📌 Save Post Resolver
+savePost: async (_, { userId, postId }) => {
+  try {
+    if (!userId || !postId) {
+      throw new Error("Missing userId or postId");
+    }
+
+    const user = await User.findById(userId);
+    if (!user) throw new Error("User not found");
+
+    if (!Array.isArray(user.bookmarks)) {
+      user.bookmarks = [];
+    }
+
+    const alreadyBookmarked = user.bookmarks.some(
+      (id) => id.toString() === postId.toString()
+    );
+
+    if (!alreadyBookmarked) {
+      user.bookmarks.push(postId);
+      await user.save();
+    }
+
+    return "Post saved successfully.";
+  } catch (error) {
+    console.error("Error in savePost:", error);
+    throw new Error("Failed to save post.");
+  }
+}
+,
+
+// ❌ Unsave Post Resolver
+unsavePost: async (_, { userId, postId }) => {
+  try {
+    if (!userId || !postId) {
+      throw new Error("Missing userId or postId");
+    }
+
+    const user = await User.findById(userId);
+    if (!user) throw new Error("User not found");
+
+    if (!Array.isArray(user.bookmarks)) {
+      user.bookmarks = [];
+    }
+
+    const beforeCount = user.bookmarks.length;
+
+    // Filter out the postId
+    user.bookmarks = user.bookmarks.filter(
+      (savedId) => savedId.toString() !== postId.toString()
+    );
+
+    const afterCount = user.bookmarks.length;
+
+    // Save only if something was actually removed
+    if (beforeCount !== afterCount) {
+      await user.save();
+      return "Post removed from bookmarks.";
+    } else {
+      return "Post was not bookmarked.";
+    }
+
+  } catch (error) {
+    console.error("Error in unsavePost:", error);
+    throw new Error("Failed to unsave post.");
+  }
+},
+saveReel: async (_, { reelId,userId }, context) => {
+      try {
+        if (!userId) {
+          return "Authentication required" 
+        }
+
+        // Check if reel exists
+        const reel = await Video.findById(reelId);
+        if (!reel) {
+          return  "Reel not found"
+        }
+
+        // Check if already saved
+        const userDoc = await User.findById(userId);
+        const alreadySaved = userDoc.saveReels.includes(reelId);
+
+        if (alreadySaved) {
+          return " Reel already saved" 
+        }
+
+        userDoc.saveReels.push(reelId);
+        await userDoc.save();
+
+        return "Reel saved successfully"
+      } catch (err) {
+        console.error(err);
+        return "Something went wrong"
+      }
+    },
+
+    unsaveReel: async (_, { reelId,userId }, context) => {
+      try {
+        if (!userId) {
+          return  "Authentication required" 
+        }
+
+        await User.findByIdAndUpdate(userId, {
+          $pull: { saveReels: reelId },
+        });
+
+        return  "Reel unsaved successfully"
+      } catch (err) {
+        console.error(err);
+        return "Something went wrong" 
+      }
+    },
+
+archivePost: async (_, { postId,userId }, { user }) => {
+      try {
+        const post = await Post.findOne({ _id: postId, createdBy: userId });
+        if (!post) {
+          throw new Error("Post not found");
+        }
+
+        post.isArchived = true;
+        await post.save();
+        return "Post Archived successfully";
+      } catch (error) {
+        console.error("Error archiving post:", error);
+        throw new Error("Failed to archive post");
+      }
+    },
+
+    unarchivePost: async (_, { postId,userId }, { user }) => {
+      try {
+        const post = await Post.findOne({ _id: postId, createdBy: userId });
+        if (!post) {
+          throw new Error("Post not found");
+        }
+
+        post.isArchived = false;
+        await post.save();
+        return "Post unArchived successfully";
+      } catch (error) {
+        console.error("Error unarchiving post:", error);
+        throw new Error("Failed to unarchive post");
+      }
+    },
+
     
     DeletePost: async (_, { id}) => {      
       const deletePost = await Post.findByIdAndDelete(id);

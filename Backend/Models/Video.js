@@ -70,6 +70,10 @@ const videoSchema = new mongoose.Schema({
     type: Number, // in bytes
     default: 0,
   },
+  isArchived: {
+    type: Boolean,
+    default: false,
+  },
   resolution: {
     width: { type: Number, default: 0 },
     height: { type: Number, default: 0 },

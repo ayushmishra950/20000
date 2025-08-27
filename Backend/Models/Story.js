@@ -13,6 +13,10 @@ const storySchema = new mongoose.Schema({
   caption: { type: String },
   location: { type: String },
   viewers: [{ type: String }],
+  isArchived: {
+    type: Boolean,
+    default: true,
+  },
   replies: [
     {
       _id: false,

@@ -80,6 +80,11 @@ const Sidebar = ({ isOpen, onClose }) => {
             <a
               href="#"
               className="flex items-center space-x-3 p-3 rounded-lg hover:bg-purple-50 text-gray-700 hover:text-purple-600 transition-colors"
+              onClick={e => {
+                e.preventDefault();
+                navigate('/settings');
+                if (onClose) onClose();
+              }}
             >
               <FaCog className="text-xl" />
               <span>Settings</span>

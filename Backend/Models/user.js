@@ -86,6 +86,36 @@ const userSchema = new mongoose.Schema({
     },
   ],
 
+    saveReels: [
+    {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Video",
+    },
+  ],
+  // is user n kis kis ko block kiya hai
+  blockedUsers: [
+  {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "User",
+  }
+],
+
+//  kitne users n is user ko block kiye hai
+blockedBy: [
+  {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "User",
+  }
+],
+
+
+  savedStories: [
+  {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Story",
+  },
+],
+
   // Notification count field
   unreadNotifications: {
     type: Number,

@@ -1,6 +1,107 @@
 
 import { gql } from "@apollo/client";
 
+export const BLOCK_USER = gql`
+  mutation Block($userId: ID!, $targetUserId: ID!) {
+    block(userId: $userId, targetUserId: $targetUserId)
+  }
+`;
+
+export const UNBLOCK_USER = gql`
+  mutation Unblock($userId: ID!, $targetUserId: ID!) {
+    unblock(userId: $userId, targetUserId: $targetUserId)
+  }
+`;
+
+export const GET_ACHIVE_STORIES = gql`
+  query GetStories($userId: ID!) {
+    getStories(userId: $userId) {
+      id
+      mediaType
+      mediaUrl
+      caption
+      createdAt
+      expiresAt
+      isArchived
+    }
+  }
+`;
+
+export const ALL_SAVED_REELS = gql`
+  query AllSavedReels($userId: ID!) {
+    allSavedReels(userId: $userId) {
+      id
+      title
+      videoUrl
+      createdAt
+    }
+  }
+`;
+
+export const UNSAVE_REEL = gql`
+  mutation UnsaveReel($reelId: ID!, $userId: ID!) {
+    unsaveReel(reelId: $reelId, userId: $userId)
+  }
+`;
+
+export const SAVE_REEL = gql`
+  mutation SaveReel($reelId: ID!, $userId: ID!) {
+    saveReel(reelId: $reelId, userId: $userId)
+  }
+`;
+
+export const GET_SAVED_POSTS = gql`
+  query GetSavedPosts($userId: ID!) {
+    getSavedPosts(userId: $userId) {
+      id
+      caption
+      imageUrl
+      videoUrl
+    }
+  }
+`;
+
+
+
+export const SAVE_POST = gql`
+  mutation SavePost($userId: ID!, $postId: ID!) {
+    savePost(userId: $userId, postId: $postId)
+  }
+`;
+export const UNSAVE_POST = gql`
+  mutation UnsavePost($userId: ID!, $postId: ID!) {
+    unsavePost(userId: $userId, postId: $postId)
+  }
+`;
+
+
+export const GET_ARCHIVED_POSTS = gql`
+  query GetArchivedPosts($userId: ID!) {
+    getArchivedPosts(userId: $userId) {
+      id
+      caption
+      imageUrl
+      videoUrl
+      thumbnailUrl
+      createdAt
+      isArchived
+    }
+  }
+`;
+
+export const UNARCHIVE_POST = gql`
+  mutation UnarchivePost($postId: ID!, $userId: ID!) {
+    unarchivePost(postId: $postId, userId: $userId) 
+  }
+`;
+
+export const ARCHIVE_POST = gql`
+  mutation ArchivePost($postId: ID!, $userId: ID!) {
+    archivePost(postId: $postId, userId: $userId) 
+  }
+`;
+
+
 
 export const CREATE_CATEGORY = gql`
   mutation CreateCategory($name: String!, $userId: ID!) {
@@ -364,6 +465,12 @@ export const GET_ALL_USERS = gql`
        followers { id }
       following { id }
       posts { id }
+      blockedUsers {
+        id
+        name
+        username
+        profileImage
+      }
     }
   }
 `;

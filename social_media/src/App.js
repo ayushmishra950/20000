@@ -29,9 +29,11 @@ import IncomingCallNotification from './components/videocall/IncomingCallNotific
 import Reel from './components/Reels/Reel';
 import FeatureTest from './components/test/FeatureTest';
 import MainApp from '../src/AdminPanel/app/page';
-
-
-
+import Settings from './components/SettingPage/Settings';
+import Saved from './components/SettingPage/Saved';
+import Archive from './components/SettingPage/Archive';
+import YourActivity from './components/SettingPage/YourActivity';
+import Blocked from './components/SettingPage/Blocked';
 function App() {
   useEffect(() => {
     const decodedUser = GetTokenFromCookie();
@@ -66,6 +68,12 @@ function App() {
           <Route path="/search" element={<SearchPage />} />
           <Route path="/reels" element={<Reel />} />
           <Route path="/notifications" element={<NotificationsPage />} />
+          <Route path="/settings" element={<Settings />} />
+          <Route path="/settings/saved" element={<Saved />} />
+          <Route path="/settings/archived" element={<Archive />} />
+          <Route path="/settings/your-activity" element={<YourActivity />} />
+          <Route path="/settings/blocked" element={<Blocked />} />
+
           <Route path="/test" element={<FeatureTest />} />
 
           {/* ✅ New video call route */}

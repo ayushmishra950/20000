@@ -16,6 +16,7 @@ const videoTypeDefs = gql`
     updatedAt: String!
     likes: [VideoLike]
     comments: [VideoComment]
+     isArchived: Boolean
     tags: [String]
     category: String
     isPublic: Boolean

@@ -19,6 +19,7 @@ module.exports = gql`
     caption: String           # Optional text or main content
     createdAt: String!
     expiresAt: String!
+     isArchived: Boolean
     location: String
     viewers: [String]
     replies: [StoryReply]

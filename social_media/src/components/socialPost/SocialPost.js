@@ -7,14 +7,17 @@ import {
   FaEllipsisV,
   FaBookmark,
   FaTrash,
+  FaArchive,
 } from "react-icons/fa";
 import { useMutation, useQuery } from '@apollo/client';
-import { REPLY_TO_COMMENT, LIKE_COMMENT, LIKE_REPLY, GET_COMMENT_DETAILS, DELETE_COMMENT } from '../../graphql/mutations';
+import { GET_ARCHIVED_POSTS,UNARCHIVE_POST,ARCHIVE_POST, REPLY_TO_COMMENT, LIKE_COMMENT, LIKE_REPLY, GET_COMMENT_DETAILS, DELETE_COMMENT, SAVE_POST, UNSAVE_POST, GET_SAVED_POSTS } from '../../graphql/mutations';
 import ShareModal from '../share/ShareModal';
 import { useNotifications } from '../../context/NotificationContext';
 import { usePersistentLikes, usePersistentCommentDetails } from '../../hooks/usePersistentData';
 import { useRealTimeNotifications } from '../../hooks/useRealTimeNotifications';
 import HeartIconPopup from '../notifications/HeartIconPopup';
+import { GetTokenFromCookie } from '../getToken/GetToken';
+
 
 const SocialPost = ({
   avatarSrc,
@@ -47,6 +50,10 @@ const SocialPost = ({
   const [replyInputs, setReplyInputs] = useState({});
   const [replyTexts, setReplyTexts] = useState({});
   const [commentMenus, setCommentMenus] = useState({});
+  const [isBookmarked, setIsBookmarked] = useState(false);
+  const [isArchived, setIsArchived] = useState(false);
+  const [token, setToken] = useState();
+
   
   // Persistent data hooks
   const [likedComments, setLikedComments] = usePersistentLikes();
@@ -61,11 +68,78 @@ const SocialPost = ({
   // Get notification context for simulating notifications
   const { addNewNotification, user: currentUser } = useNotifications();
   
-  // GraphQL mutations
+  // GraphQL mutations and queries
   const [replyToComment] = useMutation(REPLY_TO_COMMENT);
   const [likeComment] = useMutation(LIKE_COMMENT);
   const [likeReply] = useMutation(LIKE_REPLY);
   const [deleteCommentMutation] = useMutation(DELETE_COMMENT);
+  const [savePost] = useMutation(SAVE_POST);
+  const [unsavePost] = useMutation(UNSAVE_POST);
+    const [archivePost] = useMutation(ARCHIVE_POST);
+  const [unarchivePost] = useMutation(UNARCHIVE_POST);
+
+  
+  // Query to get saved posts
+  const { data: savedPostsData, refetch: refetchSavedPosts } = useQuery(GET_SAVED_POSTS, {
+    variables: { userId: token?.id?.toString() },
+    skip: !token?.id,
+    fetchPolicy: 'cache-and-network'
+  });
+
+    const { data: archivePostsData, refetch: refetchArchivedPosts } = useQuery(GET_ARCHIVED_POSTS, {
+    variables: { userId: token?.id?.toString() },
+    skip: !token?.id,
+    fetchPolicy: 'cache-and-network'
+  });
+
+
+    useEffect(() => {
+      const decodedUser = GetTokenFromCookie();
+      console.log("User Info:", decodedUser);
+      if(decodedUser?.id){
+        setToken(decodedUser);
+      }
+    }, []);
+
+
+
+  const savePostHandler = async () => {
+    if (!token?.id || !postId) return;
+    try {
+      const { data } = await savePost({
+        variables: {
+          userId : token?.id,
+          postId : postId,
+        },
+      });
+
+      console.log('✅ Post saved:', data.savePost);
+      return { success: true, message: data.savePost };
+    } catch (err) {
+      console.error('❌ Error saving post:', err.message);
+      return { success: false, message: err.message };
+    }
+  };
+
+  const unsavePostHandler = async () => {
+    if (!token?.id || !postId) return;
+    try {
+      const { data } = await unsavePost({
+        variables: {
+          userId : token?.id,
+          postId : postId,
+        },
+      });
+
+      console.log('✅ Post unsaved:', data.unsavePost);
+      return { success: true, message: data.unsavePost };
+    } catch (err) {
+      console.error('❌ Error unsaving post:', err.message);
+      return { success: false, message: err.message };
+    }
+  };
+
+
 
   // Only owners can see Delete option
   const isOwner = Boolean(
@@ -82,6 +156,23 @@ const SocialPost = ({
     setLikes(initialLikes);
     setComments(existingComments || []);
     setShowAllComments(false); // Always start with comments hidden
+    
+    // Check if post is bookmarked from backend data
+    if (savedPostsData?.getSavedPosts) {
+      const isPostBookmarked = savedPostsData.getSavedPosts.some(savedPost => savedPost.id === postId);
+      setIsBookmarked(isPostBookmarked);
+    } else {
+      // Fallback to localStorage if backend data not available yet
+      const savedPosts = JSON.parse(localStorage.getItem('savedPosts') || '[]');
+      const isPostBookmarked = savedPosts.some(savedPost => savedPost.id === postId);
+      setIsBookmarked(isPostBookmarked);
+    }
+    
+    // Check if post is archived from backend data
+    if (archivePostsData?.getArchivedPosts) {
+      const isPostArchived = archivePostsData.getArchivedPosts.some(archivedPost => archivedPost.id === postId);
+      setIsArchived(isPostArchived);
+    }
     
     // Initialize comment details with replies from backend
     if (existingComments && existingComments.length > 0) {
@@ -120,7 +211,7 @@ const SocialPost = ({
       setCommentDetails(prev => ({ ...prev, ...initialCommentDetails }));
       setLikedComments(prev => ({ ...prev, ...initialLikedComments }));
     }
-  }, [isInitiallyLiked, initialLikes, existingComments, currentUser?.id]);
+  }, [isInitiallyLiked, initialLikes, existingComments, currentUser?.id, savedPostsData, archivePostsData, postId]);
 
   const handleLike = (PostId) => {
     setLikes(isLiked ? likes - 1 : likes + 1);
@@ -130,6 +221,134 @@ const SocialPost = ({
 
   const handleCommentClick = () => {
     setShowCommentInput(!showCommentInput);
+  };
+
+  const handleBookmark = async () => {
+    if (isBookmarked) {
+      // Unsave post
+      const result = await unsavePostHandler();
+      if (result?.success) {
+        setIsBookmarked(false);
+        
+        // Refetch saved posts to update the list
+        if (refetchSavedPosts) {
+          refetchSavedPosts();
+        }
+        
+        // Show notification
+        addNewNotification({
+          id: Date.now() + Math.random(),
+          type: 'bookmark_removed',
+          message: 'Post removed from saved',
+          sender: {
+            name: 'System',
+            username: 'system',
+            profileImage: 'https://ui-avatars.com/api/?name=System&background=ef4444&color=fff&size=64'
+          },
+          createdAt: new Date().toISOString()
+        });
+      }
+    } else {
+      // Save post
+      const result = await savePostHandler();
+      if (result?.success) {
+        setIsBookmarked(true);
+        
+        // Refetch saved posts to update the list
+        if (refetchSavedPosts) {
+          refetchSavedPosts();
+        }
+        
+        // Show notification
+        addNewNotification({
+          id: Date.now() + Math.random(),
+          type: 'bookmark_added',
+          message: 'Post saved successfully',
+          sender: {
+            name: 'System',
+            username: 'system',
+            profileImage: 'https://ui-avatars.com/api/?name=System&background=10b981&color=fff&size=64'
+          },
+          createdAt: new Date().toISOString()
+        });
+      }
+    }
+    
+    setShowMenu(false); // Close menu after bookmark action
+  };
+
+  const handleArchive = async () => {
+    if (!token?.id || !postId) return;
+    
+    if (isArchived) {
+      // Unarchive post
+      try {
+        const { data } = await unarchivePost({
+          variables: {
+            userId: token.id,
+            postId: postId,
+          },
+        });
+        
+        console.log('✅ Post unarchived:', data.unarchivePost);
+        setIsArchived(false);
+        
+        // Refetch archived posts to update the list
+        if (refetchArchivedPosts) {
+          refetchArchivedPosts();
+        }
+        
+        // Show notification
+        addNewNotification({
+          id: Date.now() + Math.random(),
+          type: 'unarchive',
+          message: 'Post unarchived successfully',
+          sender: {
+            name: 'System',
+            username: 'system',
+            profileImage: 'https://ui-avatars.com/api/?name=System&background=10b981&color=fff&size=64'
+          },
+          createdAt: new Date().toISOString()
+        });
+      } catch (err) {
+        console.error('❌ Error unarchiving post:', err.message);
+      }
+    } else {
+      // Archive post
+      try {
+        const { data } = await archivePost({
+          variables: {
+            userId: token.id,
+            postId: postId,
+          },
+        });
+        
+        console.log('✅ Post archived:', data.archivePost);
+        setIsArchived(true);
+        
+        // Refetch archived posts to update the list
+        if (refetchArchivedPosts) {
+          refetchArchivedPosts();
+        }
+        
+        // Show notification
+        addNewNotification({
+          id: Date.now() + Math.random(),
+          type: 'archive',
+          message: 'Post archived successfully',
+          sender: {
+            name: 'System',
+            username: 'system',
+            profileImage: 'https://ui-avatars.com/api/?name=System&background=f59e0b&color=fff&size=64'
+          },
+          createdAt: new Date().toISOString()
+        });
+      } catch (err) {
+        console.error('❌ Error archiving post:', err.message);
+      }
+    }
+    
+    setShowMenu(false); // Close menu after archive action
   };
 
   const handleCommentSubmit = (e) => {
@@ -365,20 +584,33 @@ const SocialPost = ({
           {showMenu && (
             <div className="absolute right-0 mt-2 w-36 bg-white border border-gray-200 rounded-lg shadow-lg z-20">
               <button
-                className="flex items-center w-full px-4 py-2 text-purple-600 hover:bg-purple-50 gap-2 text-sm font-semibold rounded-t-lg"
-                onClick={() => setShowMenu(false)}
+                className={`flex items-center w-full px-4 py-2 hover:bg-purple-50 gap-2 text-sm font-semibold ${
+                  isOwner ? 'rounded-t-lg' : 'rounded-lg'
+                } ${isBookmarked ? 'text-purple-600' : 'text-gray-600'}`}
+                onClick={handleBookmark}
               >
-                <FaBookmark className="text-purple-600" />
-                Bookmark
+                <FaBookmark className={isBookmarked ? "text-purple-600" : "text-gray-600"} />
+                {isBookmarked ? 'Saved' : 'Bookmark'}
               </button>
               {isOwner && (
-                <button
-                  className="flex items-center w-full px-4 py-2 text-red-600 hover:bg-red-50 gap-2 text-sm font-semibold rounded-b-lg"
-                  onClick={onDelete}
-                >
-                  <FaTrash className="text-red-600" />
-                  Delete
-                </button>
+                <>
+                  <button
+                    className={`flex items-center w-full px-4 py-2 hover:bg-orange-50 gap-2 text-sm font-semibold ${
+                      isArchived ? 'text-green-600' : 'text-orange-600'
+                    }`}
+                    onClick={handleArchive}
+                  >
+                    <FaArchive className={isArchived ? "text-green-600" : "text-orange-600"} />
+                    {isArchived ? 'Archived' : 'Archive'}
+                  </button>
+                  <button
+                    className="flex items-center w-full px-4 py-2 text-red-600 hover:bg-red-50 gap-2 text-sm font-semibold rounded-b-lg"
+                    onClick={onDelete}
+                  >
+                    <FaTrash className="text-red-600" />
+                    Delete
+                  </button>
+                </>
               )}
             </div>
           )}

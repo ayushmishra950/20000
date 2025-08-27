@@ -11,7 +11,7 @@ module.exports = {
   Query: {
     getStories: async (_, { userId }) => {
       try {
-        return await Story.find({ userId }).sort({ createdAt: -1 });
+        return await Story.find({ userId, isArchived: true }).sort({ createdAt: -1 });
       } catch (err) {
         console.error("Error fetching stories:", err);
         throw new Error("Failed to fetch stories");

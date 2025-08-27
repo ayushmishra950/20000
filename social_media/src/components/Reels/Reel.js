@@ -2,7 +2,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import Sidebar from '../../components/sidebar/Sidebar';
 import { useQuery, useMutation } from '@apollo/client';
 import { useNavigate } from 'react-router-dom';
-import { GET_ALL_POSTS, GET_ALL_VIDEOS, LIKE_VIDEO, COMMENT_ON_VIDEO, INCREMENT_VIDEO_VIEWS, FOLLOW_AND_UNFOLLOW, DELETE_VIDEO } from '../../graphql/mutations';
+import {ALL_SAVED_REELS, SAVE_REEL,UNSAVE_REEL, GET_ALL_POSTS, GET_ALL_VIDEOS, LIKE_VIDEO, COMMENT_ON_VIDEO, INCREMENT_VIDEO_VIEWS, FOLLOW_AND_UNFOLLOW, DELETE_VIDEO } from '../../graphql/mutations';
 import { GetTokenFromCookie } from '../../components/getToken/GetToken';
 import { Heart, MessageCircleMore, Share2, Bookmark, Ellipsis, Volume2, VolumeOff, CirclePause, CirclePlay, ArrowLeftFromLine } from 'lucide-react';
 import ShareModal from '../share/ShareModal';
@@ -47,6 +47,8 @@ const Reel = () => {
   const [showPlayIcon, setShowPlayIcon] = useState(false);
   // Unmute hint when autoplay with sound is blocked
   const [showUnmuteHint, setShowUnmuteHint] = useState(false);
+  // Bookmark state for reels
+  const [bookmarkedReels, setBookmarkedReels] = useState(new Set());
   const handleMuteToggle = () => {
     setIsMuted((prev) => !prev);
     if (videoRef.current) {
@@ -74,12 +76,20 @@ const Reel = () => {
     // Hide hint once user interacts
     setShowUnmuteHint(false);
   };
-  // Mutations
+  // Mutations and Queries
   const [followUser] = useMutation(FOLLOW_AND_UNFOLLOW);
   const [likeVideo] = useMutation(LIKE_VIDEO);
   const [commentOnVideo] = useMutation(COMMENT_ON_VIDEO);
   const [deleteVideo] = useMutation(DELETE_VIDEO);
+  const [saveReel] = useMutation(SAVE_REEL);
+  const [unsaveReel] = useMutation(UNSAVE_REEL);
   
+  // Query to get saved reels
+  const { data: savedReelsData, refetch: refetchSavedReels } = useQuery(ALL_SAVED_REELS, {
+    variables: { userId: tokens?.id?.toString() },
+  });
+
+  console.log(savedReelsData?.allSavedReels);
   // Reel notifications
   const { addReelLikeNotification, addReelCommentNotification } = useReelNotifications();
 
@@ -315,6 +325,21 @@ const Reel = () => {
   useEffect(() => {
     console.log('🔄 Following users state updated:', Array.from(followingUsers));
   }, [followingUsers]);
+
+  // Load bookmarked reels from backend
+  useEffect(() => {
+    if (savedReelsData?.allSavedReels) {
+      const bookmarkedIds = new Set(savedReelsData.allSavedReels.map(reel => reel.id));
+      setBookmarkedReels(bookmarkedIds);
+      console.log('📹 Loaded bookmarked reels from backend:', Array.from(bookmarkedIds));
+    } else {
+      // Fallback to localStorage if backend data not available yet
+      const savedReels = JSON.parse(localStorage.getItem('savedReels') || '[]');
+      const bookmarkedIds = new Set(savedReels.map(reel => reel.id));
+      setBookmarkedReels(bookmarkedIds);
+      console.log('📹 Loaded bookmarked reels from localStorage:', Array.from(bookmarkedIds));
+    }
+  }, [savedReelsData]);
 
   // Simple function to pause all videos except current
   const pauseAllVideosExceptCurrent = () => {
@@ -556,6 +581,139 @@ const Reel = () => {
       if (typeof refetchVideos === 'function') refetchVideos();
     } catch (err) {
       console.error('🎬 Comment error:', err);
+    }
+  };
+
+  // Bookmark handler
+  const handleBookmarkReel = async () => {
+    const currentVideo = allVideos[currentVideoIndex];
+    if (!currentVideo || !tokens?.id) return;
+
+    const isCurrentlyBookmarked = bookmarkedReels.has(currentVideo.id);
+    
+    try {
+      if (isCurrentlyBookmarked) {
+        // Unsave reel
+        const { data } = await unsaveReel({
+          variables: {
+            userId: tokens.id,
+            reelId: currentVideo.id,
+          },
+        });
+        
+        console.log('✅ Reel unsaved:', data.unsaveReel);
+        
+        // Update local state
+        const newBookmarkedReels = new Set(bookmarkedReels);
+        newBookmarkedReels.delete(currentVideo.id);
+        setBookmarkedReels(newBookmarkedReels);
+      
+        // Refetch saved reels to update the list
+        if (refetchSavedReels) {
+          refetchSavedReels();
+        }
+        
+          // Show success message
+        const successDiv = document.createElement('div');
+        successDiv.innerHTML = `
+          <div style="
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: #EF4444;
+            color: white;
+            padding: 12px 20px;
+            border-radius: 8px;
+            font-size: 14px;
+            z-index: 10001;
+            box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+          ">
+            Reel removed from saved ✓
+          </div>
+        `;
+        document.body.appendChild(successDiv);
+        
+        setTimeout(() => {
+          if (document.body.contains(successDiv)) {
+            document.body.removeChild(successDiv);
+          }
+        }, 3000);
+        
+      } else {
+        // Save reel
+        const { data } = await saveReel({
+          variables: {
+            userId: tokens.id,
+            reelId: currentVideo.id,
+          },
+        });
+        
+        console.log('✅ Reel saved:', data.saveReel);
+        
+        // Update local state
+        const newBookmarkedReels = new Set(bookmarkedReels);
+        newBookmarkedReels.add(currentVideo.id);
+        setBookmarkedReels(newBookmarkedReels);
+        
+        // Refetch saved reels to update the list
+        if (refetchSavedReels) {
+          refetchSavedReels();
+        }
+        
+        // Show success message
+        const successDiv = document.createElement('div');
+        successDiv.innerHTML = `
+          <div style="
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: #10B981;
+            color: white;
+            padding: 12px 20px;
+            border-radius: 8px;
+            font-size: 14px;
+            z-index: 10001;
+            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+          ">
+            Reel saved successfully! ✓
+          </div>
+        `;
+        document.body.appendChild(successDiv);
+        
+        setTimeout(() => {
+          if (document.body.contains(successDiv)) {
+            document.body.removeChild(successDiv);
+          }
+        }, 3000);
+      }
+    } catch (error) {
+      console.error('❌ Error bookmarking reel:', error);
+      
+      // Show error message
+      const errorDiv = document.createElement('div');
+      errorDiv.innerHTML = `
+        <div style="
+          position: fixed;
+          top: 20px;
+          right: 20px;
+          background: #F59E0B;
+          color: white;
+          padding: 12px 20px;
+          border-radius: 8px;
+          font-size: 14px;
+          z-index: 10001;
+          box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        ">
+          Something went wrong. Please try again.
+        </div>
+      `;
+      document.body.appendChild(errorDiv);
+      
+      setTimeout(() => {
+        if (document.body.contains(errorDiv)) {
+          document.body.removeChild(errorDiv);
+        }
+      }, 3000);
     }
   };
 
@@ -1017,7 +1175,13 @@ const Reel = () => {
   />
 
   {/* Bookmark Icon */}
-  <Bookmark className="w-7 h-7 text-black cursor-pointer" />
+  <Bookmark 
+    className={`w-7 h-7 cursor-pointer ${
+      bookmarkedReels.has(currentVideo?.id) ? 'text-purple-600' : 'text-black'
+    }`}
+    fill={bookmarkedReels.has(currentVideo?.id) ? 'currentColor' : 'none'}
+    onClick={handleBookmarkReel}
+  />
 
   {/* Ellipsis Icon with Delete Menu */}
   <div className="relative delete-menu-container">

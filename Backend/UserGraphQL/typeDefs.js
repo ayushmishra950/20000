@@ -19,8 +19,51 @@ const typeDefs = gql`
     following: [User]           # Suggestion System Support
     posts: [Post]               # Added to support searchUsers query
     videos: [Video]
+    bookmarks : [Post]        
+    saveReels : [Video]  
+    blockedUsers: [User]
+    blockedBy: [User]
+    savedStories : [Story]  
      is_blocked: Boolean       # User's videos
   }
+
+  type Story {
+    id: ID!
+    userId: ID!
+    username: String!
+    avatar: String!
+    mediaType: String         # Optional: "image" | "video"
+    mediaUrl: String          # Optional URL to the uploaded media
+    caption: String           # Optional text or main content
+    createdAt: String!
+    isArchived: Boolean
+    expiresAt: String!
+    location: String
+    viewers: [String]
+    replies: [StoryReply]
+  }
+
+   type Video {
+    id: ID!
+    title: String!
+    description: String
+    videoUrl: String!
+    thumbnailUrl: String
+    duration: Float
+    views: Int
+    createdBy: User!
+     isArchived: Boolean
+    createdAt: String!
+    updatedAt: String!
+    likes: [VideoLike]
+    comments: [VideoComment]
+    tags: [String]
+    category: String
+    isPublic: Boolean
+    fileSize: Float
+    resolution: VideoResolution
+  }
+
 
 
     type Notification {
@@ -53,6 +96,7 @@ const typeDefs = gql`
     isVideo: Boolean
     createdBy: User
     createdAt: String
+    isArchived: Boolean
     likes: [Like]
     comments: [Comment]
   }
@@ -85,12 +129,15 @@ const typeDefs = gql`
     users: [User]
     getMe: User
     getAllPosts(userId : ID): [Post]
-    searchUsers(username: String!): [User]
+    searchUsers(username: String!, userId: ID!): [User]
     suggestedUsers(userId: ID!): [User]
      getUserNotifications(userId: ID!): [Notification]
     getUnreadNotificationsCount(userId: ID!): Int
     getCommentDetails(postId: ID!, commentId: ID!): Comment
     getUserInformation(id: ID!): User
+    getSavedPosts(userId: ID!): [Post]
+    getArchivedPosts(userId: ID!): [Post]
+    allSavedReels(userId: ID!): [Video!]!
   }
 
   type Mutation {
@@ -105,6 +152,15 @@ const typeDefs = gql`
     registerUser(email: String!, otp: Int!): User
 
     login(email: String!, password: String!): User
+    savePost(userId: ID!, postId: ID!): String
+  unsavePost(userId: ID!, postId: ID!): String
+  archivePost(postId: ID!, userId: ID!): String
+    unarchivePost(postId: ID!, userId: ID!): String
+        saveReel(reelId: ID!, userId: ID!): String
+    unsaveReel(reelId: ID!, userId: ID!): String
+     block(targetUserId: ID!,userId: ID!): String
+  unblock(targetUserId: ID!, userId: ID!): String
+
 
     logout: String
 
