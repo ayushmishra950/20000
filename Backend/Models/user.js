@@ -13,6 +13,8 @@ const userSchema = new mongoose.Schema({
   phone: { type: String },
 
   otp: { type: Number },
+  
+   role: { type: String, enum: ['USER', 'ADMIN'], default: 'USER'},
 
   createTime: {
     type: Date,
@@ -41,6 +43,11 @@ const userSchema = new mongoose.Schema({
 
   // Add online status field
   isOnline: {
+    type: Boolean,
+    default: false,
+  },
+
+  isPrivate: {
     type: Boolean,
     default: false,
   },
@@ -109,10 +116,10 @@ blockedBy: [
 ],
 
 
-  savedStories: [
+  hiddenFromStory: [
   {
     type: mongoose.Schema.Types.ObjectId,
-    ref: "Story",
+    ref: "User",
   },
 ],
 

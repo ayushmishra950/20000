@@ -12,8 +12,10 @@ const typeDefs = gql`
     createTime: String
     token: String
     profileImage: String
+    role : String
     bio: String
     isOnline: Boolean           # Online status field
+    isPrivate : Boolean
     lastActive: String          # Last active timestamp
     followers: [User]           # Suggestion System Support
     following: [User]           # Suggestion System Support
@@ -23,7 +25,7 @@ const typeDefs = gql`
     saveReels : [Video]  
     blockedUsers: [User]
     blockedBy: [User]
-    savedStories : [Story]  
+    hiddenFromStory : [User]  
      is_blocked: Boolean       # User's videos
   }
 
@@ -129,6 +131,9 @@ const typeDefs = gql`
     users: [User]
     getMe: User
     getAllPosts(userId : ID): [Post]
+    getFollowers(userId : ID): [User!]!
+  getHiddenFromStory(userId : ID): [User!]!
+    mySelf(userId : ID): User
     searchUsers(username: String!, userId: ID!): [User]
     suggestedUsers(userId: ID!): [User]
      getUserNotifications(userId: ID!): [Notification]
@@ -138,6 +143,7 @@ const typeDefs = gql`
     getSavedPosts(userId: ID!): [Post]
     getArchivedPosts(userId: ID!): [Post]
     allSavedReels(userId: ID!): [Video!]!
+    getSavedStory(id: ID!): Story
   }
 
   type Mutation {
@@ -160,6 +166,7 @@ const typeDefs = gql`
     unsaveReel(reelId: ID!, userId: ID!): String
      block(targetUserId: ID!,userId: ID!): String
   unblock(targetUserId: ID!, userId: ID!): String
+  hideStoryFrom(userIds: [ID!]!,currentUserId: ID!): String
 
 
     logout: String
@@ -172,6 +179,7 @@ const typeDefs = gql`
       email: String!
       newPassword: String!
     ): String
+    updateUserPrivacy(userId: ID!, isPrivate: Boolean!): String
 
     createPost(id: ID, caption: String!, image: Upload, video: Upload, thumbnail: Upload): Post
     DeletePost(id: ID!) : String!

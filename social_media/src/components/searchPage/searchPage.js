@@ -177,6 +177,7 @@ const SearchPage = () => {
           email
           phone
           profileImage
+          isPrivate
           bio
           is_blocked
           createTime
@@ -1165,190 +1166,198 @@ const UserDetailsModal = ({ user, onClose, updateUser, setRecentSearches, persis
                 <div className="text-xs text-gray-500">Following</div>
               </div>
             </div>
-            {/* Follow/Unfollow button moved just below counts */}
-            <div className="w-full flex items-center justify-center gap-2 mb-2">
-              <button
-                onClick={handleFollowToggle}
-                className={`px-4 py-2 text-sm rounded-lg font-semibold shadow-sm transition-all duration-200 focus:outline-none ${isFollowing ? 'bg-gray-300 hover:bg-gray-400 text-gray-800' : 'bg-purple-600 hover:bg-purple-700 text-white'
-                  }`}
-              >
-                {isFollowing ? 'Unfollow' : 'Follow'}
-              </button>
-              {/* <button
-              onClick={() => handleBlockUser(user.id)}
-              className="px-4 py-2 text-sm rounded-lg font-semibold shadow-sm transition-all duration-200 focus:outline-none bg-red-600 hover:bg-red-700 text-white"
-            >
-              Block
-            </button> */}
+            {/* Private badge under counts for private accounts */}
+            {user?.isPrivate && (
+              <div className="w-full flex items-center justify-center mt-3">
+                <div className="px-4 py-1.5 text-sm font-semibold rounded-full bg-gray-100 text-gray-700 border border-gray-300">
+                  Private
+                </div>
+              </div>
+            )}
+            {/* Private accounts: hide actions and tabs below counts */}
+            {!user?.isPrivate && (
+              <>
+                {/* Follow/Unfollow button moved just below counts */}
+                <div className="w-full flex items-center justify-center gap-2 mb-2">
+                  <button
+                    onClick={handleFollowToggle}
+                    className={`px-4 py-2 text-sm rounded-lg font-semibold shadow-sm transition-all duration-200 focus:outline-none ${isFollowing ? 'bg-gray-300 hover:bg-gray-400 text-gray-800' : 'bg-purple-600 hover:bg-purple-700 text-white'
+                      }`}
+                  >
+                    {isFollowing ? 'Unfollow' : 'Follow'}
+                  </button>
 
-              <button
-                onClick={() => handleBlockUser(user.id)}
-                className={`px-4 py-2 text-sm rounded-lg font-semibold shadow-sm transition-all duration-200 focus:outline-none ${isBlocked ? 'bg-gray-300 hover:bg-gray-400 text-gray-800' : 'bg-red-600 hover:bg-red-700 text-white'
-                  }`}
-              >
-                {isBlocked ? 'Unblock' : 'Block'}
-              </button>
+                  <button
+                    onClick={() => handleBlockUser(user.id)}
+                    className={`px-4 py-2 text-sm rounded-lg font-semibold shadow-sm transition-all duration-200 focus:outline-none ${isBlocked ? 'bg-gray-300 hover:bg-gray-400 text-gray-800' : 'bg-red-600 hover:bg-red-700 text-white'
+                      }`}
+                  >
+                    {isBlocked ? 'Unblock' : 'Block'}
+                  </button>
+                </div>
 
-            </div>
-            {/* Tabs */}
-            <div className="flex border-b mt-4 w-full animate-fade-in-slow">
-              <button
-                onClick={() => setActiveTab('posts')}
-                className={`flex-1 py-2 text-sm font-semibold transition-all duration-200 ${activeTab === 'posts' ? 'text-purple-600 border-b-2 border-purple-600 bg-purple-50' : 'text-gray-500 hover:text-purple-400'}`}
-              >
-                Posts
-              </button>
-              <button
-                onClick={() => setActiveTab('shorts')}
-                className={`flex-1 py-2 text-sm font-semibold transition-all duration-200 ${activeTab === 'shorts' ? 'text-purple-600 border-b-2 border-purple-600 bg-purple-50' : 'text-gray-500 hover:text-purple-400'}`}
-              >
-                Shorts
-              </button>
-            </div>
-            {/* Tab Content */}
-            <div className="mt-4 w-full animate-fade-in-slow">
-              {activeTab === 'posts' && (
-                <div className="space-y-4">
-                  {user.posts && user.posts.length > 0 ? (
-                    user.posts.map(post => (
-                      <div key={post.id} className="border rounded-2xl overflow-hidden bg-white shadow transition-shadow duration-300 hover:shadow-lg hover:-translate-y-1 hover:border-purple-400 border-gray-200 transition-transform group">
-                        {/* Post Header */}
-                        <div className="flex items-center p-3 bg-gradient-to-r from-purple-50 to-white border-b border-gray-100">
-                          <img
-                            src={user.profileImage || 'https://via.placeholder.com/40'}
-                            alt={user.name}
-                            className="w-8 h-8 rounded-full mr-2 border-2 border-purple-200"
-                          />
-                          <div>
-                            <div className="font-semibold text-sm text-purple-700">{user.name}</div>
-                            {user.username && <div className="text-xs text-gray-500">@{user.username}</div>}
-                          </div>
-                        </div>
-                        {/* Post Image */}
-                        <img
-                          src={post.imageUrl || 'https://via.placeholder.com/400'}
-                          alt={post.caption || 'Post'}
-                          className="w-full object-cover max-h-80 bg-gray-50"
-                        />
-                        {/* Divider */}
-                        <div className="h-1 bg-gradient-to-r from-purple-100 via-white to-purple-100" />
-                        {/* Post Actions (moved above caption) */}
-                        <div className="flex justify-around py-3 text-sm text-gray-700 border-t border-b bg-white/80">
-                          <button
-                            onClick={() => handleLikePost(post.id)}
-                            className="flex items-center gap-1 cursor-pointer hover:text-purple-600 transition-colors"
-                          >
-                            <FaHeart className={isLiked[post.id] ? "text-red-500" : ""} size={18} />
-                            <span className="ml-1 font-semibold">{postLikes[post.id] || 0} likes</span>
-                          </button>
-                          <button
-                            onClick={() => handleCommentToggle(post.id)}
-                            className="flex items-center gap-1 cursor-pointer hover:text-purple-600 transition-colors"
-                          >
-                            <FaComment size={18} />
-                            <span className="ml-1 font-semibold">{postComments[post.id] || 0} comments</span>
-                          </button>
-                          <div className="flex items-center gap-1">
-                            <FaPaperPlane />
-                            <span>Share</span>
-                          </div>
-                          <div className="text-xs text-gray-400 flex items-center">
-                            {new Date(Number(post.createdAt)).toLocaleDateString()}
-                          </div>
-                        </div>
-                        {/* Caption */}
-                        {post.caption && (
-                          <div className="px-4 py-3 bg-purple-50 border-b border-purple-100">
-                            <span className="font-semibold text-sm text-purple-700 mr-2">Caption:</span>
-                            <span className="text-base text-black font-bold">{post.caption}</span>
-                          </div>
-                        )}
-                        {/* Comments Section */}
-                        <div className="px-4 pt-3 pb-2">
-                          {Array.isArray(post.comments) && post.comments.length > 0 && (
-                            <>
-                              <div className="font-semibold text-purple-600 text-sm mb-1">Comments</div>
-                              <div className="space-y-2">
-                                {post.comments.slice(0, selectedPost === post.id ? undefined : 3).map((comment, index) => (
-                                  <div key={comment.id || `temp-${index}-${comment.text}`} className="bg-gray-100 rounded-lg px-3 py-1 text-sm flex items-center justify-between">
-                                    <div className="flex items-center">
-                                      <span className="font-bold text-purple-700 mr-2">{comment.user?.name || 'User'}:</span>
-                                      <span className="text-gray-700">{comment.text}</span>
-                                    </div>
-                                    <button
-                                      className="flex items-center gap-1 text-gray-500 hover:text-blue-600 ml-2 focus:outline-none"
-                                      title="Like this comment"
-                                    // onClick={() => handleLikeComment(comment.id)} // Implement logic if needed
-                                    >
-                                      <FaThumbsUp />
-                                      <span className="text-xs">{comment.likesCount || 0}</span>
-                                    </button>
-                                  </div>
-                                ))}
+                {/* Tabs */}
+                <div className="flex border-b mt-4 w-full animate-fade-in-slow">
+                  <button
+                    onClick={() => setActiveTab('posts')}
+                    className={`flex-1 py-2 text-sm font-semibold transition-all duration-200 ${activeTab === 'posts' ? 'text-purple-600 border-b-2 border-purple-600 bg-purple-50' : 'text-gray-500 hover:text-purple-400'}`}
+                  >
+                    Posts
+                  </button>
+                  <button
+                    onClick={() => setActiveTab('shorts')}
+                    className={`flex-1 py-2 text-sm font-semibold transition-all duration-200 ${activeTab === 'shorts' ? 'text-purple-600 border-b-2 border-purple-600 bg-purple-50' : 'text-gray-500 hover:text-purple-400'}`}
+                  >
+                    Shorts
+                  </button>
+                </div>
+
+                {/* Tab Content */}
+                <div className="mt-4 w-full animate-fade-in-slow">
+                  {activeTab === 'posts' && (
+                    <div className="space-y-4">
+                      {user.posts && user.posts.length > 0 ? (
+                        user.posts.map(post => (
+                          <div key={post.id} className="border rounded-2xl overflow-hidden bg-white shadow transition-shadow duration-300 hover:shadow-lg hover:-translate-y-1 hover:border-purple-400 border-gray-200 transition-transform group">
+                            {/* Post Header */}
+                            <div className="flex items-center p-3 bg-gradient-to-r from-purple-50 to-white border-b border-gray-100">
+                              <img
+                                src={user.profileImage || 'https://via.placeholder.com/40'}
+                                alt={user.name}
+                                className="w-8 h-8 rounded-full mr-2 border-2 border-purple-200"
+                              />
+                              <div>
+                                <div className="font-semibold text-sm text-purple-700">{user.name}</div>
+                                {user.username && <div className="text-xs text-gray-500">@{user.username}</div>}
                               </div>
-                              {post.comments.length > 3 && (
-                                <button
-                                  className="text-xs text-blue-500 cursor-pointer hover:underline mt-2"
-                                  onClick={() => setSelectedPost(post.id === selectedPost ? null : post.id)}
-                                >
-                                  {selectedPost === post.id
-                                    ? 'Show less'
-                                    : `View all ${post.comments.length} comments`}
-                                </button>
-                              )}
-                            </>
-                          )}
-                        </div>
-                        {/* Add Comment Section */}
-                        {showCommentInput[post.id] && (
-                          <form
-                            onSubmit={(e) => handleCommentSubmit(e, post.id)}
-                            className="px-4 py-3 border-t border-gray-200 bg-white flex gap-2"
-                          >
-                            <input
-                              type="text"
-                              placeholder="Add a comment..."
-                              className="flex-grow border border-gray-300 rounded-full px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400"
-                              value={commentText[post.id] || ''}
-                              onChange={(e) => setCommentText(prev => ({
-                                ...prev,
-                                [post.id]: e.target.value
-                              }))}
-                              autoFocus
+                            </div>
+                            {/* Post Image */}
+                            <img
+                              src={post.imageUrl || 'https://via.placeholder.com/400'}
+                              alt={post.caption || 'Post'}
+                              className="w-full object-cover max-h-80 bg-gray-50"
                             />
-                            <button
-                              type="submit"
-                              className="bg-purple-600 text-white rounded-full px-4 py-2 text-sm font-semibold hover:bg-purple-700 cursor-pointer transition-transform duration-200 hover:scale-105"
-                              disabled={!commentText[post.id]?.trim()}
-                            >
-                              Post
-                            </button>
-                          </form>
-                        )}
-                        {!showCommentInput[post.id] && (
-                          <div className="px-4 py-3 border-t bg-white">
-                            <button
-                              onClick={() => handleCommentToggle(post.id)}
-                              className="w-full text-center text-sm text-purple-600 hover:text-purple-800 transition-colors"
-                            >
-                              Add a comment...
-                            </button>
+                            {/* Divider */}
+                            <div className="h-1 bg-gradient-to-r from-purple-100 via-white to-purple-100" />
+                            {/* Post Actions (moved above caption) */}
+                            <div className="flex justify-around py-3 text-sm text-gray-700 border-t border-b bg-white/80">
+                              <button
+                                onClick={() => handleLikePost(post.id)}
+                                className="flex items-center gap-1 cursor-pointer hover:text-purple-600 transition-colors"
+                              >
+                                <FaHeart className={isLiked[post.id] ? "text-red-500" : ""} size={18} />
+                                <span className="ml-1 font-semibold">{postLikes[post.id] || 0} likes</span>
+                              </button>
+                              <button
+                                onClick={() => handleCommentToggle(post.id)}
+                                className="flex items-center gap-1 cursor-pointer hover:text-purple-600 transition-colors"
+                              >
+                                <FaComment size={18} />
+                                <span className="ml-1 font-semibold">{postComments[post.id] || 0} comments</span>
+                              </button>
+                              <div className="flex items-center gap-1">
+                                <FaPaperPlane />
+                                <span>Share</span>
+                              </div>
+                              <div className="text-xs text-gray-400 flex items-center">
+                                {new Date(Number(post.createdAt)).toLocaleDateString()}
+                              </div>
+                            </div>
+                            {/* Caption */}
+                            {post.caption && (
+                              <div className="px-4 py-3 bg-purple-50 border-b border-purple-100">
+                                <span className="font-semibold text-sm text-purple-700 mr-2">Caption:</span>
+                                <span className="text-base text-black font-bold">{post.caption}</span>
+                              </div>
+                            )}
+                            {/* Comments Section */}
+                            <div className="px-4 pt-3 pb-2">
+                              {Array.isArray(post.comments) && post.comments.length > 0 && (
+                                <>
+                                  <div className="font-semibold text-purple-600 text-sm mb-1">Comments</div>
+                                  <div className="space-y-2">
+                                    {post.comments.slice(0, selectedPost === post.id ? undefined : 3).map((comment, index) => (
+                                      <div key={comment.id || `temp-${index}-${comment.text}`} className="bg-gray-100 rounded-lg px-3 py-1 text-sm flex items-center justify-between">
+                                        <div className="flex items-center">
+                                          <span className="font-bold text-purple-700 mr-2">{comment.user?.name || 'User'}:</span>
+                                          <span className="text-gray-700">{comment.text}</span>
+                                        </div>
+                                        <button
+                                          className="flex items-center gap-1 text-gray-500 hover:text-blue-600 ml-2 focus:outline-none"
+                                          title="Like this comment"
+                                        // onClick={() => handleLikeComment(comment.id)} // Implement logic if needed
+                                        >
+                                          <FaThumbsUp />
+                                          <span className="text-xs">{comment.likesCount || 0}</span>
+                                        </button>
+                                      </div>
+                                    ))}
+                                  </div>
+                                  {post.comments.length > 3 && (
+                                    <button
+                                      className="text-xs text-blue-500 cursor-pointer hover:underline mt-2"
+                                      onClick={() => setSelectedPost(post.id === selectedPost ? null : post.id)}
+                                    >
+                                      {selectedPost === post.id
+                                        ? 'Show less'
+                                        : `View all ${post.comments.length} comments`}
+                                    </button>
+                                  )}
+                                </>
+                              )}
+                            </div>
+                            {/* Add Comment Section */}
+                            {showCommentInput[post.id] && (
+                              <form
+                                onSubmit={(e) => handleCommentSubmit(e, post.id)}
+                                className="px-4 py-3 border-t border-gray-200 bg-white flex gap-2"
+                              >
+                                <input
+                                  type="text"
+                                  placeholder="Add a comment..."
+                                  className="flex-grow border border-gray-300 rounded-full px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400"
+                                  value={commentText[post.id] || ''}
+                                  onChange={(e) => setCommentText(prev => ({
+                                    ...prev,
+                                    [post.id]: e.target.value
+                                  }))}
+                                  autoFocus
+                                />
+                                <button
+                                  type="submit"
+                                  className="bg-purple-600 text-white rounded-full px-4 py-2 text-sm font-semibold hover:bg-purple-700 cursor-pointer transition-transform duration-200 hover:scale-105"
+                                  disabled={!commentText[post.id]?.trim()}
+                                >
+                                  Post
+                                </button>
+                              </form>
+                            )}
+                            {!showCommentInput[post.id] && (
+                              <div className="px-4 py-3 border-t bg-white">
+                                <button
+                                  onClick={() => handleCommentToggle(post.id)}
+                                  className="w-full text-center text-sm text-purple-600 hover:text-purple-800 transition-colors"
+                                >
+                                  Add a comment...
+                                </button>
+                              </div>
+                            )}
                           </div>
-                        )}
-                      </div>
-                    ))
-                  ) : (
-                    <div className="py-8 text-center text-gray-500">No posts yet</div>
+                        ))
+                      ) : (
+                        <div className="py-8 text-center text-gray-500">No posts yet</div>
+                      )}
+                    </div>
+                  )}
+
+                  {activeTab === 'shorts' && (
+                    <div className="space-y-4">
+                      <div className="py-8 text-center text-gray-500">No shorts available</div>
+                    </div>
                   )}
                 </div>
-              )}
-              {activeTab === 'shorts' && (
-                <div className="space-y-4">
-                  {/* Shorts Placeholder: Replace with actual shorts if available */}
-                  <div className="py-8 text-center text-gray-500">No shorts available</div>
-                </div>
-              )}
-            </div>
+              </>
+            )}
             {/* Bottom actions removed per request; close is available in header */}
           </div>
         </div>

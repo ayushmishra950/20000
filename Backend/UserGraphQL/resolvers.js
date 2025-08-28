@@ -24,6 +24,32 @@ const resolvers = {
   Upload: GraphQLUpload,
 
   Query: {
+    getFollowers: async (_, { userId }, { }) => {
+      if (!userId) throw new AuthenticationError("Not logged in");
+      const user = await User.findById(userId).populate("followers");
+      return user.followers;
+    },
+    getHiddenFromStory: async (_, { userId }, { }) => {
+      if (!userId) throw new AuthenticationError("Not logged in");
+      const user = await User.findById(userId).populate("hiddenFromStory");
+      return user.hiddenFromStory;
+    },
+mySelf: async (_, { userId }, { dataSources }) => {
+      // Example using a data source or DB service
+      // You can also replace this with Prisma, Mongoose, etc.
+      const user = await User.findById(userId);
+
+      if (!user) {
+        throw new Error('User not found');
+      }
+
+      return {
+        id: user.id,
+        username: user.username,
+        role: user.role,
+        isPrivate : user.isPrivate,
+      };
+    },
 
     allSavedReels: async (_, {userId}, context) => {
     
@@ -211,89 +237,6 @@ getCommentDetails: async (_, { postId, commentId }) => {
 }, // end code here
 
 
-
-
-    // searchUsers: async (_, { username }) => {
-    //   try {
-    //     const users = await User.find({
-    //       $or: [
-    //         { name: { $regex: username, $options: 'i' } },
-    //         { username: { $regex: username, $options: 'i' } }
-    //       ]
-    //     })
-    //       .select('id name username email phone is_blocked profileImage bio createTime followers following posts')
-    //       .populate('followers', 'id name')
-    //       .populate('following', 'id name')
-    //       .populate('blockedUsers', 'id username')
-    //       .populate({
-    //         path: 'posts',
-    //         select: 'id caption imageUrl createdAt likes comments',
-    //         populate: [
-    //           {
-    //             path: 'likes.user',
-    //             select: 'id name username profileImage'
-    //           },
-    //           {
-    //             path: 'comments.user',
-    //             select: 'id name username profileImage'
-    //           }
-    //         ]
-    //       })
-    //       .limit(10);
-
-    //     return users;
-    //   } catch (error) {
-    //     console.error('Search users error:', error);
-    //     throw new Error('Failed to search users');
-    //   }
-    // },
-
-
-
-
-//     searchUsers: async (_, { username, userId }) => {
-//   try {
-//     // Step 1: Get the current user’s blockedUsers
-//     const currentUser = await User.findById(userId).select('blockedUsers');
-//     const blockedUserIds = currentUser?.blockedUsers?.map(user => user.toString()) || [];
-
-//     // Step 2: Find users matching the search but exclude blocked ones
-//     const users = await User.find({
-//       $or: [
-//         { name: { $regex: username, $options: 'i' } },
-//         { username: { $regex: username, $options: 'i' } }
-//       ],
-//       _id: { $nin: blockedUserIds } // ✅ Exclude blocked users
-//     })
-//       .select('id name username email phone is_blocked profileImage bio createTime followers following posts')
-//       .populate('followers', 'id name')
-//       .populate('following', 'id name')
-//       .populate('blockedUsers', 'id username')
-//       .populate({
-//         path: 'posts',
-//         select: 'id caption imageUrl createdAt likes comments',
-//         populate: [
-//           {
-//             path: 'likes.user',
-//             select: 'id name username profileImage'
-//           },
-//           {
-//             path: 'comments.user',
-//             select: 'id name username profileImage'
-//           }
-//         ]
-//       })
-//       .limit(10);
-
-//     return users;
-//   } catch (error) {
-//     console.error('Search users error:', error);
-//     throw new Error('Failed to search users');
-//   }
-// },
-
-
-
 searchUsers: async (_, { username, userId }) => {
   try {
     // Step 1: Get current user’s blockedUsers & blockedBy
@@ -313,7 +256,7 @@ searchUsers: async (_, { username, userId }) => {
       ],
       _id: { $nin: [...allBlockedIds, userId] }
     })
-      .select('id name username email phone is_blocked profileImage bio createTime followers following posts')
+      .select('id name username email phone isPrivate is_blocked profileImage bio createTime followers following posts')
       .populate('followers', 'id name')
       .populate('following', 'id name')
       .populate('blockedUsers', 'id username')
@@ -561,55 +504,38 @@ searchUsers: async (_, { username, userId }) => {
     },
 
 
-//     block: async (_, { targetUserId, userId }, context) => {
-//   if (!userId || !targetUserId) throw new Error("Missing userId or targetUserId");
+updateUserPrivacy: async (_, { userId, isPrivate }) => {
+  try {
+    // Find user
+    const user = await User.findById(userId);
 
-//   if (userId === targetUserId) {
-//     throw new Error("You can't block yourself");
-//   }
+    if (!user) {
+      throw new Error("User not found");
+    }
 
-//   const currentUser = await User.findById(userId);
-//   const targetUser = await User.findById(targetUserId);
+    // Update the field directly
+    user.isPrivate = isPrivate;
+    await user.save();
 
-//   if (!targetUser) throw new Error("User not found");
+    return "Private account status updated successfully";
+  } catch (error) {
+    throw new Error(`Failed to update privacy: ${error.message}`);
+  }
+},
 
-//   // Already blocked?
-//   if (currentUser.blockedUsers.includes(targetUserId)) {
-//     throw new Error("User already blocked");
-//   }
+hideStoryFrom: async (_, { userIds,currentUserId}, { currentUser }) => {
+      if (!currentUserId) throw new AuthenticationError("Not logged in");
 
-//   // Add block
-//   currentUser.blockedUsers.push(targetUserId);
-//   targetUser.blockedBy.push(userId);
+      const user = await User.findById(currentUserId);
 
-//   await currentUser.save();
-//   await targetUser.save();
+      // Filter only valid followers
+      const validUserIds = userIds.filter(id => user.followers.includes(id));
 
-//   return "User blocked successfully";
-// },
+      user.hiddenFromStory = validUserIds;
+      await user.save();
 
-// unblock: async (_, { targetUserId, userId }, context) => {
-//    if (!userId || !targetUserId) throw new Error("Missing userId or targetUserId");;
-
-//   const currentUser = await User.findById(userId);
-//   const targetUser = await User.findById(targetUserId);
-
-//   if (!targetUser) throw new Error("User not found");
-
-//   // Remove block
-//   currentUser.blockedUsers = currentUser.blockedUsers.filter(
-//     id => id.toString() !== targetUserId
-//   );
-
-//   targetUser.blockedBy = targetUser.blockedBy.filter(
-//     id => id.toString() !== userId
-//   );
-
-//   await currentUser.save();
-//   await targetUser.save();
-
-//   return "User unblocked successfully";
-// },
+      return "Story hidden from selected users.";
+    },
 
 block: async (_, { targetUserId, userId }) => {
   if (!userId || !targetUserId) throw new Error("Missing userId or targetUserId");

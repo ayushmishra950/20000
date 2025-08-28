@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import PageShell from "./PageShell";
-import { GET_SAVED_POSTS,ALL_SAVED_REELS } from '../../graphql/mutations';
+import { GET_SAVED_POSTS,ALL_SAVED_REELS,GET_USER_LIKED_VIDEOS } from '../../graphql/mutations';
 import { GetTokenFromCookie } from '../getToken/GetToken';
 import {useQuery,useMutation } from '@apollo/client';
 
@@ -22,7 +22,9 @@ export default function Saved() {
     const { data, loading, error, refetch } = useQuery(GET_SAVED_POSTS, {
       variables: {userId : token?.id.toString()}
     });  
-       console.log(data?.getSavedPosts);
+  
+      const { data: videoData } = useQuery(GET_SAVED_POSTS, { variables: { userId: token?.id } })
+       console.log(videoData?.getSavedPosts);
 
         const { data: savedReelsData, refetch: refetchSavedReels } = useQuery(ALL_SAVED_REELS, {
            variables: { userId: token?.id?.toString() },
@@ -43,6 +45,13 @@ export default function Saved() {
       setSavedReels(savedReelsData.allSavedReels);
     }
   }, [savedReelsData]);
+
+  // Update saved stories (Videos tab) using data from line 27
+  useEffect(() => {
+    if (videoData?.getSavedPosts) {
+      setSavedStories(videoData.getSavedPosts);
+    }
+  }, [videoData]);
 
   return (
     <PageShell title="Saved">
@@ -94,14 +103,14 @@ export default function Saved() {
             fontSize: 14
           }}
         >
-          Stories
+          Videos
         </button>
       </div>
 
       {/* Content area */}
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16 }}>
         {/* Posts Section */}
-        {category === "posts" && (
+        {/* {category === "posts" && (
           savedPosts.length > 0 ? (
             savedPosts.map(post => (
               <div key={post.id} style={{ width: 150, textAlign: 'center', border: '1px solid #e0e0e0', borderRadius: 8, padding: 8 }}>
@@ -111,13 +120,16 @@ export default function Saved() {
                     alt={post.caption || "Saved Post"} 
                     style={{ width: '100%', height: 120, objectFit: 'cover', borderRadius: 6 }} 
                   />
-                ) : post.videoUrl ? (
+                ) 
+                :
+                 post.videoUrl ? (
                   <video 
                     src={post.videoUrl} 
                     style={{ width: '100%', height: 120, objectFit: 'cover', borderRadius: 6 }} 
                     controls
                     muted
                   />
+                  
                 ) : (
                   <img 
                     src="https://via.placeholder.com/150" 
@@ -131,9 +143,12 @@ export default function Saved() {
                 <div style={{ fontSize: 10, color: '#999', marginTop: 4 }}>
                   {post.savedAt ? new Date(post.savedAt).toLocaleDateString() : 'Recently saved'}
                 </div>
+                
               </div>
+
             ))
-          ) : (
+          )
+           : (
             <div style={{ width: '100%', textAlign: 'center', padding: 40, color: '#666' }}>
               <div style={{ fontSize: 18, marginBottom: 8 }}>📝</div>
               <div>No saved posts yet</div>
@@ -142,7 +157,72 @@ export default function Saved() {
               </div>
             </div>
           )
-        )}
+        )} */}
+
+
+
+
+
+          {/* {category === "posts" && (
+          savedPosts.length > 0 ? (
+            savedPosts.map(post => (
+              <div key={post.id} style={{ width: 150, textAlign: 'center', border: '1px solid #e0e0e0', borderRadius: 8, padding: 8 }}>
+                <img 
+                  src={post.imageUrl} 
+                  alt={post.title || "Saved Reel"} 
+                  style={{ width: '100%', height: 120, objectFit: 'cover', borderRadius: 6 }} 
+                />
+                <div style={{ fontSize: 12, marginTop: 8, color: '#666', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {post.title || post.description || "No title"}
+                </div>
+                <div style={{ fontSize: 10, color: '#999', marginTop: 4 }}>
+                  {new Date(post.savedAt).toLocaleDateString()}
+                </div>
+              </div>
+            ))
+          ) : (
+            <div style={{ width: '100%', textAlign: 'center', padding: 40, color: '#666' }}>
+              <div style={{ fontSize: 18, marginBottom: 8 }}>🎬</div>
+              <div>No saved reels yet</div>
+              <div style={{ fontSize: 14, color: '#999', marginTop: 4 }}>
+                Bookmark reels to see them here
+              </div>
+            </div>
+          )
+        )} */}
+
+
+
+        {category === "posts" && (() => {
+  const imagePosts = savedPosts.filter(post => post.imageUrl); // sirf image waale posts
+
+  return imagePosts.length > 0 ? (
+    imagePosts.map(post => (
+      <div key={post.id} style={{ width: 150, textAlign: 'center', border: '1px solid #e0e0e0', borderRadius: 8, padding: 8 }}>
+        <img 
+          src={post.imageUrl} 
+          alt={post.title || "Saved Post"} 
+          style={{ width: '100%', height: 120, objectFit: 'cover', borderRadius: 6 }} 
+        />
+        <div style={{ fontSize: 12, marginTop: 8, color: '#666', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {post.title || post.description || "No title"}
+        </div>
+        <div style={{ fontSize: 10, color: '#999', marginTop: 4 }}>
+          {post.savedAt ? new Date(post.savedAt).toLocaleDateString() : 'Recently saved'}
+        </div>
+      </div>
+    ))
+  ) : (
+    <div style={{ width: '100%', textAlign: 'center', padding: 40, color: '#666' }}>
+      <div style={{ fontSize: 18, marginBottom: 8 }}>📝</div>
+      <div>No saved posts yet</div>
+      <div style={{ fontSize: 14, color: '#999', marginTop: 4 }}>
+        Bookmark posts with images to see them here
+      </div>
+    </div>
+  );
+})()}
+
 
         {/* Reels Section */}
         {category === "reels" && (
@@ -174,12 +254,12 @@ export default function Saved() {
         )}
 
         {/* Stories Section */}
-        {category === "stories" && (
+        {/* {category === "stories" && (
           savedStories.length > 0 ? (
             savedStories.map(story => (
               <div key={story.id} style={{ width: 150, textAlign: 'center', border: '1px solid #e0e0e0', borderRadius: 8, padding: 8 }}>
-                <img 
-                  src={story.imageUrl || story.videoUrl || "https://via.placeholder.com/150"} 
+                <video 
+                  src={story.videoUrl || "https://via.placeholder.com/150"} 
                   alt="Saved Story" 
                   style={{ width: '100%', height: 120, objectFit: 'cover', borderRadius: 6 }} 
                 />
@@ -200,7 +280,40 @@ export default function Saved() {
               </div>
             </div>
           )
-        )}
+        )} */}
+
+
+        {category === "stories" && (() => {
+  const videoStories = savedStories.filter(story => story.videoUrl); // Sirf video waale stories
+
+  return videoStories.length > 0 ? (
+    videoStories.map(story => (
+      <div key={story.id} style={{ width: 150, textAlign: 'center', border: '1px solid #e0e0e0', borderRadius: 8, padding: 8 }}>
+        <video 
+          src={story.videoUrl} 
+          style={{ width: '100%', height: 120, objectFit: 'cover', borderRadius: 6 }} 
+          controls
+          muted
+        />
+        <div style={{ fontSize: 12, marginTop: 8, color: '#666' }}>
+          Story
+        </div>
+        <div style={{ fontSize: 10, color: '#999', marginTop: 4 }}>
+          {story.savedAt ? new Date(story.savedAt).toLocaleDateString() : 'Recently saved'}
+        </div>
+      </div>
+    ))
+  ) : (
+    <div style={{ width: '100%', textAlign: 'center', padding: 40, color: '#666' }}>
+      <div style={{ fontSize: 18, marginBottom: 8 }}>📖</div>
+      <div>No saved stories yet</div>
+      <div style={{ fontSize: 14, color: '#999', marginTop: 4 }}>
+        Bookmark stories to see them here
+      </div>
+    </div>
+  );
+})()}
+
       </div>
     </PageShell>
   );

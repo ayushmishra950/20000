@@ -1,6 +1,48 @@
 
 import { gql } from "@apollo/client";
 
+export const GET_FOLLOWERS = gql`
+  query getFollowers($userId: ID!) {
+    getFollowers(userId: $userId) {
+      id
+      username
+    }
+  }
+`;
+
+export const UPDATE_USER_PRIVACY = gql`
+  mutation UpdatePrivacy($userId: ID!, $isPrivate: Boolean!) {
+    updateUserPrivacy(userId: $userId, isPrivate: $isPrivate)
+  }
+`;
+
+export const GET_HIDDEN_FROM_STORY = gql`
+  query getHiddenFromStory($userId: ID!) {
+    getHiddenFromStory(userId: $userId) {
+      id
+      username
+    }
+  }
+`;
+
+export const HIDE_STORY_FROM = gql`
+  mutation hideStoryFrom($userIds: [ID!]!, $currentUserId: ID!) {
+    hideStoryFrom(userIds: $userIds, currentUserId: $currentUserId)
+  }
+`;
+
+
+export const ME_QUERY = gql`
+  query mySelf($userId: ID!) {
+    mySelf(userId: $userId) {
+      id
+      username
+      role
+      isPrivate
+    }
+  }
+`;
+
 export const BLOCK_USER = gql`
   mutation Block($userId: ID!, $targetUserId: ID!) {
     block(userId: $userId, targetUserId: $targetUserId)

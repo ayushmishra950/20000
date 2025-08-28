@@ -775,12 +775,13 @@ async function startServer() {
     typeDefs: [userTypeDefs, chatTypeDefs, videoTypeDefs, groupTypeDefs, storyTypeDefs, adminTypeDefs],
     resolvers: [userResolvers, chatResolvers, videoResolvers, groupResolvers, storyResolvers, adminResolvers],
     uploads: false, // ✅ Yeh likhna zaroori hai if using graphqlUploadExpress()
-    context: ({ req, res }) => {
+    context: async({ req, res }) => {
       const io = req.app.get("io");
 
       // Check for token in cookies first (for Apollo Client)
       let token = req.cookies.token;
       let tokenSource = 'cookie';
+      let role = 'GUEST';
 
       // If no cookie token, check Authorization header (for direct fetch calls)
       if (!token) {
@@ -800,8 +801,10 @@ async function startServer() {
 
       try {
         const user = jwt.verify(token, process.env.JWT_SECRET);
+       let currentUser = await User.findById(user.id);
+        role = currentUser?.role || 'GUEST';
         console.log('✅ User authenticated via', tokenSource, ':', { id: user.id, name: user.name });
-        return { req, res, user, io };
+        return { req, res, user, io,role };
       } catch (err) {
         console.log('❌ Token verification failed:', err.message);
         return { req, res, io };

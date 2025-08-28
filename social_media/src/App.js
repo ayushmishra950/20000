@@ -34,6 +34,10 @@ import Saved from './components/SettingPage/Saved';
 import Archive from './components/SettingPage/Archive';
 import YourActivity from './components/SettingPage/YourActivity';
 import Blocked from './components/SettingPage/Blocked';
+import RoleGuard from './AdminPanel/RoleGuard/RoleGuard';
+import HideYourStory from './components/SettingPage/HideYourStory';
+import Privacy from './components/SettingPage/Privacy';
+
 function App() {
   useEffect(() => {
     const decodedUser = GetTokenFromCookie();
@@ -73,6 +77,10 @@ function App() {
           <Route path="/settings/archived" element={<Archive />} />
           <Route path="/settings/your-activity" element={<YourActivity />} />
           <Route path="/settings/blocked" element={<Blocked />} />
+          <Route path="/settings/hide-your-story" element={<HideYourStory />} />
+          <Route path="/settings/privacy" element={<Privacy />} />
+
+
 
           <Route path="/test" element={<FeatureTest />} />
 
@@ -81,7 +89,8 @@ function App() {
                     <Route path="/call" element={<CallUser />} />
            <Route path="/receive" element={<ReceiveCall />} />
           <Route path="/video-call" element={<VideoCall />} />
-            <Route path="/admin" element={<MainApp/>} />
+            {/* <Route path="/admin" element={<MainApp/>} /> */}
+            <Route path="/admin" element={  <RoleGuard allowedRoles={["ADMIN"]}> <MainApp /> </RoleGuard> }/>
         </Routes>
         
         {/* Toast Container for notifications */}

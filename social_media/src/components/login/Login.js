@@ -69,6 +69,7 @@ const Login = () => {
           name
           email
           token
+          role
         }
       }
     `;
@@ -89,9 +90,9 @@ const Login = () => {
            withCredentials: true,
         }
       );
-
+// "USER"
       const { data, errors } = response.data;
-      console.log(errors)
+      console.log(data?.login?.role)
 
       if (errors && errors.length > 0) {
         setErrorMessage(errors[0].message);
@@ -100,7 +101,11 @@ const Login = () => {
       } else {
         setShowSuccess(true);
         setTimeout(() => setShowSuccess(false), 2000);
-        setTimeout(() => navigate('/'), 2000);
+        setTimeout(() =>{ 
+           if(data?.login?.role === "ADMIN"){
+              navigate("/admin")
+             }else if(data?.login?.role === "USER"){navigate('/')}
+          }, 500);
         try {
           sessionStorage.setItem('user', JSON.stringify(data.login));
         } catch (error) {

@@ -3,7 +3,7 @@
    const user_token = (user) => {
       try {
          const token = jwt.sign(
-               { id: user._id, email: user.email, name : user.name,username : user.username,bio : user.bio, profileImage :user.profileImage, followers : user.followers, following : user.following, posts : user.posts },
+               { id: user._id,role: user.role, isPrivate: user.isPrivate , email: user.email, name : user.name,username : user.username,bio : user.bio, profileImage :user.profileImage, followers : user.followers, following : user.following, posts : user.posts },
                process.env.JWT_SECRET,
                { expiresIn: '7d' }
          );
