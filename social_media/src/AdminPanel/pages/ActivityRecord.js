@@ -17,15 +17,52 @@ import {
 } from "lucide-react"
 import { useEffect, useState } from "react"
 import CountUp from "react-countup"
+import { useQuery, gql } from "@apollo/client"
+
+// GraphQL query to fetch activity logs
+const ACTIVITY_LOGS_QUERY = gql`
+  query ActivityLogs($userId: ID!) {
+    activityLogs(userId: $userId) {
+      date
+      totalMinutes
+    }
+  }
+`;
 
 // This is a dummy component for the skeleton loading state
 const Skeleton = ({ className }) => (
   <div className={`bg-gray-200 animate-pulse rounded-md ${className}`}></div>
 )
 
-export default function UserActivityDashboard() {
+export default function UserActivityDashboard({ selectedUser }) {
   const [isAnimated, setIsAnimated] = useState(false)
   const [isCardLoading, setIsCardLoading] = useState(true)
+
+  // Fetch activity logs for the selected user
+  const { data, loading, error } = useQuery(ACTIVITY_LOGS_QUERY, {
+    variables: { userId: selectedUser?.id },
+    skip: !selectedUser?.id,
+    fetchPolicy: "cache-first",
+  });
+
+  // Compute all-time totals and average per day
+  const logs = data?.activityLogs || [];
+  const totalMinutesAllTime = logs.reduce(
+    (sum, log) => sum + (Number(log?.totalMinutes) || 0),
+    0
+  );
+  const totalHoursAllTime = Number((totalMinutesAllTime / 60).toFixed(1));
+  const uniqueDays = logs.length;
+  const averageHoursPerDay = uniqueDays
+    ? Number(((totalMinutesAllTime / uniqueDays) / 60).toFixed(1))
+    : 0;
+
+  // Today's active time in hours
+  const todayStr = new Date().toISOString().split('T')[0];
+  const todayMinutes = logs.reduce((sum, log) =>
+    sum + (log?.date === todayStr ? (Number(log?.totalMinutes) || 0) : 0)
+  , 0);
+  const todayHours = Number((todayMinutes / 60).toFixed(1));
 
   useEffect(() => {
     // Animate charts after a short delay
@@ -47,60 +84,83 @@ export default function UserActivityDashboard() {
   // 1. Overview Stat Cards
   const stats = [
     {
-      title: "Total Active Hours (This Month)",
-      value: 58.5,
-      startValue: 50,
-      displayValue: "58.5 hrs",
-      change: "↑ 15% from last month",
+      title: "Total Active Hours (All Time)",
+      value: loading ? 0 : totalHoursAllTime,
+      startValue: 0,
+      displayValue: undefined,
+      change: null,
       icon: Clock,
       color: "text-blue-500",
     },
     {
       title: "Average Daily Usage",
-      value: 1.9,
-      startValue: 1.5,
-      displayValue: "1.9 hrs",
-      change: "↑ 8% from last week",
+      value: loading ? 0 : averageHoursPerDay,
+      startValue: 0,
+      displayValue: undefined,
+      change: null,
       icon: TrendingUp,
       color: "text-green-500",
     },
     {
-      title: "Peak Usage Time",
-      value: 9,
-      startValue: 8,
-      displayValue: "9:00 PM",
+      title: "Today Active Time",
+      value: loading ? 0 : todayHours,
+      startValue: 0,
+      displayValue: undefined,
       change: null,
-      icon: Zap,
+      icon: Clock,
       color: "text-purple-500",
     },
-    {
-      title: "Most Active Day",
-      value: null,
-      startValue: null,
-      displayValue: "Wednesdays",
-      change: "Last 4 weeks",
-      icon: Calendar,
-      color: "text-orange-500",
-    },
   ]
 
-  // 2. Charts Data
-  const dailyUsageData = [
-    { day: "Mon", value: 1.5, height: "80px" },
-    { day: "Tue", value: 2.1, height: "110px" },
-    { day: "Wed", value: 2.8, height: "140px" },
-    { day: "Thu", value: 1.9, height: "100px" },
-    { day: "Fri", value: 3.2, height: "160px" },
-    { day: "Sat", value: 4.5, height: "200px" },
-    { day: "Sun", value: 2.0, height: "105px" },
-  ]
+  // 2. Charts Data (computed from logs): Last 7 days, per day active hours
+  const getDateString = (d = new Date()) => d.toISOString().split('T')[0];
+  const daysBack = 7;
+  const last7Days = Array.from({ length: daysBack }, (_, i) => {
+    const d = new Date();
+    d.setDate(d.getDate() - (daysBack - 1 - i)); // oldest -> newest
+    return getDateString(d);
+  });
 
-  const weeklySummaryData = [
-    { week: "Wk 1", value: 15, height: "80px" },
-    { week: "Wk 2", value: 12, height: "64px" },
-    { week: "Wk 3", value: 18, height: "96px" },
-    { week: "Wk 4", value: 13, height: "70px" },
-  ]
+  // Map date -> totalMinutes for quick lookup
+  const minutesByDate = logs.reduce((map, l) => {
+    if (l?.date) map.set(l.date, Number(l.totalMinutes) || 0);
+    return map;
+  }, new Map());
+
+  const dailyUsageData = last7Days.map((dateStr) => {
+    const minutes = minutesByDate.get(dateStr) || 0;
+    const hours = Number((minutes / 60).toFixed(1));
+    const day = new Date(dateStr).toLocaleDateString(undefined, { weekday: 'short' });
+    return { day, value: hours };
+  });
+
+  // Weekly Summary: last 4 weeks, sum of minutes per week -> hours
+  const startOfWeek = (d) => {
+    const date = new Date(d);
+    const day = date.getDay(); // 0=Sun..6=Sat
+    const diff = (day + 6) % 7; // Monday as start
+    date.setHours(0, 0, 0, 0);
+    date.setDate(date.getDate() - diff);
+    return date;
+  };
+  const currentWeekStart = startOfWeek(new Date());
+  const weekStarts = Array.from({ length: 4 }, (_, i) => {
+    const d = new Date(currentWeekStart);
+    d.setDate(d.getDate() - (3 - i) * 7); // oldest -> newest
+    return d;
+  });
+
+  const weeklySummaryData = weekStarts.map((ws, idx) => {
+    let minutes = 0;
+    for (let offset = 0; offset < 7; offset++) {
+      const d = new Date(ws);
+      d.setDate(d.getDate() + offset);
+      const ds = getDateString(d);
+      minutes += minutesByDate.get(ds) || 0;
+    }
+    const hours = Number((minutes / 60).toFixed(1));
+    return { week: `Wk ${idx + 1}`, value: hours };
+  });
 
   const deviceSplitData = [
     { label: "Mobile", value: 45, color: "bg-purple-500" },
@@ -339,12 +399,10 @@ export default function UserActivityDashboard() {
               {renderBarChart("Weekly Summary (Hours)", weeklySummaryData, "bg-purple-500 hover:bg-purple-600")}
             </div>
           </section>
-          <section className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6">
-            {/* Donut Chart */}
+          {/* <section className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6">
             <div className="md:col-span-2 xl:col-span-1">
               {renderDonutChart("Device Split", deviceSplitData)}
             </div>
-            {/* Extra Engagement Insights */}
             <div className="bg-white rounded-lg p-4 sm:p-6 shadow-sm border border-gray-200">
               <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-4 truncate">Engagement Insights</h3>
               <div className="flex items-center justify-between mb-4">
@@ -375,10 +433,10 @@ export default function UserActivityDashboard() {
                 </div>
               </div>
             </div>
-          </section>
+          </section> */}
 
           {/* 3. Detailed Activity Table */}
-          <section className="mt-6 sm:mt-8">
+          {/* <section className="mt-6 sm:mt-8">
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
               <h3 className="text-lg font-semibold p-4 sm:p-6 text-gray-900 border-b border-gray-200">
                 <LineChart size={18} className="inline mr-2 text-gray-500" />
@@ -429,7 +487,7 @@ export default function UserActivityDashboard() {
                 </table>
               </div>
             </div>
-          </section>
+          </section> */}
         </main>
       </div>
     </div>

@@ -37,6 +37,7 @@ import Blocked from './components/SettingPage/Blocked';
 import RoleGuard from './AdminPanel/RoleGuard/RoleGuard';
 import HideYourStory from './components/SettingPage/HideYourStory';
 import Privacy from './components/SettingPage/Privacy';
+import TimeManagement from './components/SettingPage/TimeManagement';
 
 function App() {
   useEffect(() => {
@@ -79,6 +80,7 @@ function App() {
           <Route path="/settings/blocked" element={<Blocked />} />
           <Route path="/settings/hide-your-story" element={<HideYourStory />} />
           <Route path="/settings/privacy" element={<Privacy />} />
+          <Route path="/settings/time-management" element={<TimeManagement />} />
 
 
 
